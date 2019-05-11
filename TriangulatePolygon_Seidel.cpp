@@ -1,5 +1,4 @@
-#include "GeometryAlgorithms.h"
-#include "PoolAllocator.h"
+#include "TriangulatePolygon_Seidel.h"
 #include "geometry.h"
 #include <limits>
 #include <random>
@@ -10,90 +9,6 @@
 
 namespace Geometry
 {
-
-struct TrapezoidationTreeNode;
-
-
-struct Point
-{
-	size_t index;
-	TrapezoidationTreeNode* node;
-};
-
-
-struct Segment
-{
-	size_t upperPointIndex;
-	size_t lowerPointIndex;
-	math3d::vec3f line;
-};
-
-
-struct Trapezoid
-{
-	enum class ThirdUpperSide
-	{
-		LEFT,
-		RIGHT
-	};
-
-	enum class Status
-	{
-		Inside,
-		Outside
-	};
-
-	int upperVertexIndex = -1;
-	int lowerVertexIndex = -1;
-	Trapezoid* upper1 = nullptr;
-	Trapezoid* upper2 = nullptr;
-	Trapezoid* upper3 = nullptr;
-	Trapezoid* lower1 = nullptr;
-	Trapezoid* lower2 = nullptr;
-	ThirdUpperSide upper3Side = ThirdUpperSide::LEFT;
-	int leftSegmentIndex = -1;
-	int rightSegmentIndex = -1;
-	TrapezoidationTreeNode* node = nullptr;
-	Status state = Status::Outside;
-};
-
-
-struct TrapezoidationTreeNode
-{
-	enum class Type
-	{
-		VERTEX,
-		SEGMENT,
-		TRAPEZOID
-	};
-
-	Type type;
-
-	union
-	{
-		size_t elementIndex;
-		Trapezoid* trapezoid;
-	};
-
-	TrapezoidationTreeNode* left = nullptr;
-	TrapezoidationTreeNode* right = nullptr;
-	TrapezoidationTreeNode* parent = nullptr;
-};
-
-
-struct TrapezoidTreeState
-{
-	TrapezoidTreeState(const math3d::vec2f* pts, size_t n);
-	
-	size_t numPoints;
-	const math3d::vec2f* pointCoords;
-	std::vector<Point> points;
-	std::vector<Segment> segments;
-	BaseLib::PoolAllocator<Trapezoid> trapezoidPool;
-	BaseLib::PoolAllocator<TrapezoidationTreeNode> treeNodePool;
-	TrapezoidationTreeNode* treeRootNode;
-};
-
 
 enum class VerticalRelation
 {
@@ -205,6 +120,8 @@ static TrapezoidationTreeNode* AddPoint(TrapezoidTreeState& state, size_t pointI
 		state.treeRootNode->left = leftChild;
 		state.treeRootNode->right = rightChild;
 		state.treeRootNode->parent = nullptr;
+
+		state.points[pointIndex].node = state.treeRootNode;
 
 		return state.treeRootNode;
 	}
@@ -484,6 +401,106 @@ static void ThreadSegment(
 	trapNode->right = rightTrapNode;
 }
 
+static TrapezoidationTreeNode* GetFirstTrapezoidForNewSegment(TrapezoidTreeState& state, const Segment& segment)
+{
+	TrapezoidationTreeNode* node = state.treeRootNode;
+
+	while (node != nullptr)
+	{
+		switch (node->type)
+		{
+		case TrapezoidationTreeNode::Type::VERTEX:
+		{
+			// We found the upper vertex node, now find the first trapezoid node towards the lower point.
+			if (segment.upperPointIndex == node->elementIndex)
+			{
+				// We continue search below the vertex.
+				node = node->left;
+
+				while (node != nullptr)
+				{
+					switch (node->type)
+					{
+					case TrapezoidationTreeNode::Type::VERTEX:
+					{
+						// Since this vertex is below upper vertex, the trapezoid must be above it.
+						node = node->right;
+						break;
+					}
+
+					case TrapezoidationTreeNode::Type::TRAPEZOID:
+					{
+						return node;
+					}
+
+					case TrapezoidationTreeNode::Type::SEGMENT:
+					{
+						size_t ptIndex;
+
+						// Procede to the side on which the other point is.
+						if (state.segments[node->elementIndex].lowerPointIndex == segment.upperPointIndex ||
+							state.segments[node->elementIndex].upperPointIndex == segment.upperPointIndex)
+						{
+							ptIndex = segment.lowerPointIndex;
+						}
+						else if (state.segments[node->elementIndex].lowerPointIndex == segment.lowerPointIndex ||
+								 state.segments[node->elementIndex].upperPointIndex == segment.lowerPointIndex)
+						{
+							ptIndex = segment.upperPointIndex;
+						}
+						else
+						{
+							//assert(false);
+							ptIndex = segment.upperPointIndex;
+						}
+
+						auto side = WhichSegmentSide(state.pointCoords[ptIndex], state.segments[node->elementIndex]);
+						node = (side == SegmentSide::Left) ? node->left : node->right;
+						break;
+					}
+					}
+				}
+			}
+			else
+			{
+				if (PointsVerticalRelation(state.pointCoords[segment.upperPointIndex], state.pointCoords[node->elementIndex]) == VerticalRelation::Below)
+				{
+					node = node->left;
+				}
+				else // above
+				{
+					node = node->right;
+				}
+			}
+
+			break;
+		}
+
+		case TrapezoidationTreeNode::Type::SEGMENT:
+		{
+			if (WhichSegmentSide(state.pointCoords[segment.upperPointIndex], state.segments[node->elementIndex]) == SegmentSide::Left)
+			{
+				node = node->left;
+			}
+			else // right
+			{
+				node = node->right;
+			}
+
+			break;
+		}
+
+		case TrapezoidationTreeNode::Type::TRAPEZOID:
+		{
+			// The upper point is not inserted, this is the trapezoid where it should be.
+			return node;
+		}
+		}
+	}
+
+	return nullptr;
+}
+
 static TrapezoidationTreeNode* MergeTrapezoids(TrapezoidationTreeNode* prevTrapNode, TrapezoidationTreeNode* curTrapNode)
 {
 	return curTrapNode;
@@ -504,9 +521,11 @@ static void AddSegment(TrapezoidTreeState& state, size_t segmentIndex)
 	// Thread the segment from its upper point to its lower point through trapezoids and split
 	// them in half.
 
-	TrapezoidationTreeNode* trapezoidNode = state.points[segment.upperPointIndex].node->left;
+	TrapezoidationTreeNode* trapezoidNode = GetFirstTrapezoidForNewSegment(state, segment);
 	TrapezoidationTreeNode* prevLeftTrapNode = nullptr;
 	TrapezoidationTreeNode* prevRightTrapNode = nullptr;
+
+	assert(trapezoidNode != nullptr);
 
 	while (trapezoidNode->trapezoid->upperVertexIndex != segment.lowerPointIndex)
 	{
@@ -528,7 +547,7 @@ static void BuildTrapezoidTree(TrapezoidTreeState& state)
 	// Generate random sequence of line segments.
 	std::vector<size_t> segmentIndices(state.numPoints);
 	std::iota(segmentIndices.begin(), segmentIndices.end(), 0);
-	std::shuffle(segmentIndices.begin(), segmentIndices.end(), std::mt19937 { });
+//!	std::shuffle(segmentIndices.begin(), segmentIndices.end(), std::mt19937 { });
 
 	// Add each segment to the tree.
 	for (size_t segInd : segmentIndices)
@@ -546,20 +565,20 @@ static void DoEarClipping()
 }
 
 
-bool TriangulatePolygon_Seidel(const math3d::vec2f* points, size_t numPoints, std::vector<unsigned short>& outIndices)
+bool TriangulatePolygon_Seidel(TrapezoidTreeState& state, std::vector<unsigned short>& outIndices)
 {
-	if (points == nullptr ||
-		numPoints < 3 ||
-		numPoints > std::numeric_limits<unsigned short>::max())
+	if (state.pointCoords == nullptr ||
+		state.numPoints < 3 ||
+		state.numPoints > std::numeric_limits<unsigned short>::max())
 	{
 		return false;
 	}
 
-	const size_t numDiagonals = numPoints - 3;
-	const size_t numTriangles = numPoints - 2;
-	const size_t maxNumTrapezoids = 3 * numPoints + 1;
+	const size_t numDiagonals = state.numPoints - 3;
+	const size_t numTriangles = state.numPoints - 2;
+	const size_t maxNumTrapezoids = 3 * state.numPoints + 1;
 
-	TrapezoidTreeState state { points, numPoints };
+	//TrapezoidTreeState state { points, numPoints };
 
 	BuildTrapezoidTree(state);
 	BuildYMonotoneChains();

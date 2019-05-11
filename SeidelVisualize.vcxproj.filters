@@ -71,9 +71,6 @@
     <ClInclude Include="geometry.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="GeometryAlgorithms.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="PoolAllocator.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -90,6 +87,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="mathutil.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="TriangulatePolygon_Seidel.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

@@ -23,6 +23,9 @@ public:
 	void SetListener(InputPolygonWidgetListener* listener);
 	void ResetAndEdit();
 	const std::vector<math3d::vec2f>& GetPoints() const;
+	bool IsEditing() const { return _editing; }
+	void SetPolygon(const std::vector<math3d::vec2f>& points);
+	void ResetView();
 
 protected:
 	virtual void paintEvent(QPaintEvent* event) override;
@@ -48,4 +51,5 @@ private:
 	bool _editing = true;
 	bool _panning = false;
 	bool _initPan = true;
+	QFont _font { "Verdana", 10 };
 };

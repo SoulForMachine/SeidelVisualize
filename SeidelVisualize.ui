@@ -49,7 +49,49 @@
      <height>21</height>
     </rect>
    </property>
+   <widget class="QMenu" name="menu_Commands">
+    <property name="title">
+     <string>&amp;Commands</string>
+    </property>
+    <addaction name="actionLoad"/>
+    <addaction name="actionSave"/>
+    <addaction name="actionReset"/>
+    <addaction name="actionResetViews"/>
+   </widget>
+   <addaction name="menu_Commands"/>
   </widget>
+  <action name="actionLoad">
+   <property name="text">
+    <string>&amp;Load</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+L</string>
+   </property>
+  </action>
+  <action name="actionSave">
+   <property name="text">
+    <string>&amp;Save</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+S</string>
+   </property>
+  </action>
+  <action name="actionReset">
+   <property name="text">
+    <string>&amp;Reset</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+R</string>
+   </property>
+  </action>
+  <action name="actionResetViews">
+   <property name="text">
+    <string>Reset &amp;Views</string>
+   </property>
+   <property name="shortcut">
+    <string>Home</string>
+   </property>
+  </action>
  </widget>
  <layoutdefault spacing="6" margin="11"/>
  <customwidgets>

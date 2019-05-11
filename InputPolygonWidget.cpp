@@ -29,6 +29,20 @@ const std::vector<math3d::vec2f>& InputPolygonWidget::GetPoints() const
 	return _points;
 }
 
+void InputPolygonWidget::SetPolygon(const std::vector<math3d::vec2f>& points)
+{
+	_editing = false;
+	_points = points;
+	ResetView();
+}
+
+void InputPolygonWidget::ResetView()
+{
+	_pan.set(width() / 2, height() / 2);
+	_zoom = 1.0f;
+	update();
+}
+
 void InputPolygonWidget::paintEvent(QPaintEvent* event)
 {
 	QPainter painter { this };
@@ -60,6 +74,7 @@ void InputPolygonWidget::paintEvent(QPaintEvent* event)
 		auto scrPt = WorldToScreen({ _points[i].x, _points[i].y });
 		scrPts[i] = { scrPt.x, scrPt.y };
 		painter.drawEllipse(scrPts[i], 5, 5);
+		painter.drawText(QPoint { scrPts[i].x() - 16, scrPts[i].y() }, QString::number(i));
 	}
 
 	if (_editing)
@@ -151,16 +166,7 @@ void InputPolygonWidget::wheelEvent(QWheelEvent* event)
 
 void InputPolygonWidget::keyPressEvent(QKeyEvent* event)
 {
-	switch (event->key())
-	{
-	case Qt::Key_Home:
-	{
-		_pan.set(width() / 2, height() / 2);
-		_zoom = 1.0f;
-		update();
-		break;
-	}
-	}
+	QWidget::keyPressEvent(event);
 }
 
 math3d::vec2f InputPolygonWidget::ScreenToWorld(const math3d::vec2i& screenPt)
