@@ -180,6 +180,7 @@ void TrapezoidationTreeWidget::DrawNode(QPainter& painter, Geometry::Trapezoidat
 		QPoint halfSize { 20, 20 };
 		QRect rect { position - halfSize, position + halfSize };
 		painter.drawEllipse(rect);
+		painter.drawText(rect, QString::number(node->trapezoid->number), QTextOption { Qt::AlignHCenter | Qt::AlignVCenter });
 		break;
 	}
 	}

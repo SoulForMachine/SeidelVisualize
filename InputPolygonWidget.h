@@ -4,6 +4,15 @@
 #include <QWidget>
 #include <QPaintEvent>
 #include "vec2.h"
+#include "vec4.h"
+
+
+namespace Geometry
+{
+struct TrapezoidationTreeNode;
+struct TrapezoidTreeState;
+}
+
 
 class InputPolygonWidgetListener
 {
@@ -21,6 +30,7 @@ public:
 	~InputPolygonWidget();
 
 	void SetListener(InputPolygonWidgetListener* listener);
+	void SetTreeState(Geometry::TrapezoidTreeState* state);
 	void ResetAndEdit();
 	const std::vector<math3d::vec2f>& GetPoints() const;
 	bool IsEditing() const { return _editing; }
@@ -41,7 +51,10 @@ private:
 
 	math3d::vec2f ScreenToWorld(const math3d::vec2i& screenPt);
 	math3d::vec2i WorldToScreen(const math3d::vec2f& worldPt);
+	void DrawTrapezoids(QPainter& painter, Geometry::TrapezoidationTreeNode* node);
+	void RecalcBBox();
 
+	Geometry::TrapezoidTreeState* _state = nullptr;
 	InputPolygonWidgetListener* _listener = nullptr;
 	math3d::vec2i _pan { 0, 0 };
 	float _zoom { 1.0f };
@@ -52,4 +65,5 @@ private:
 	bool _panning = false;
 	bool _initPan = true;
 	QFont _font { "Verdana", 10 };
+	math3d::vec4f _aabBox;
 };

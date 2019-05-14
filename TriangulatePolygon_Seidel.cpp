@@ -10,6 +10,9 @@
 namespace Geometry
 {
 
+int Trapezoid::nextNumber = 1;
+
+
 enum class VerticalRelation
 {
 	Above,
@@ -49,11 +52,11 @@ static SegmentSide WhichSegmentSide(const math3d::vec2f& point, const Segment& s
 
 TrapezoidTreeState::TrapezoidTreeState(const math3d::vec2f* pts, size_t n) :
 	numPoints { n },
-	pointCoords { pts },
+	pointCoords { pts, pts + n },
 	points { },
 	segments { },
 	trapezoidPool { 3 * n + 1 },
-	treeNodePool { (2 * n) + (3 * n + 1) },
+	treeNodePool { (10 * n) + (3 * n + 1) },	//! better calculation needed
 	treeRootNode { nullptr }
 {
 	points.resize(n);
@@ -92,34 +95,31 @@ static TrapezoidationTreeNode* AddPoint(TrapezoidTreeState& state, size_t pointI
 	// If the tree is empty, place a new vertex node as the root with two child trapezoid nodes.
 	if (state.treeRootNode == nullptr)
 	{
-		state.treeRootNode = state.treeNodePool.New();
-
-		// Node for lower trapezoid.
-		auto leftChild = state.treeNodePool.New();
-		leftChild->type = TrapezoidationTreeNode::Type::TRAPEZOID;
-		leftChild->parent = state.treeRootNode;
-		leftChild->trapezoid = state.trapezoidPool.New();
-		leftChild->trapezoid->upperVertexIndex = static_cast<int>(pointIndex);
-		leftChild->trapezoid->lowerVertexIndex = -1;
-		leftChild->trapezoid->node = leftChild;
-
-		// Node for upper trapezoid.
 		auto rightChild = state.treeNodePool.New();
-		rightChild->type = TrapezoidationTreeNode::Type::TRAPEZOID;
-		rightChild->parent = state.treeRootNode;
-		rightChild->trapezoid = state.trapezoidPool.New();
-		rightChild->trapezoid->upperVertexIndex = -1;
-		rightChild->trapezoid->lowerVertexIndex = static_cast<int>(pointIndex);
-		rightChild->trapezoid->node = rightChild;
+		auto leftChild = state.treeNodePool.New();
 
-		leftChild->trapezoid->upper1 = rightChild->trapezoid;
-		rightChild->trapezoid->lower1 = leftChild->trapezoid;
-
+		state.treeRootNode = state.treeNodePool.New();
 		state.treeRootNode->type = TrapezoidationTreeNode::Type::VERTEX;
 		state.treeRootNode->elementIndex = pointIndex;
 		state.treeRootNode->left = leftChild;
 		state.treeRootNode->right = rightChild;
-		state.treeRootNode->parent = nullptr;
+
+		// Node for upper trapezoid.
+		rightChild->type = TrapezoidationTreeNode::Type::TRAPEZOID;
+		rightChild->parent = state.treeRootNode;
+		rightChild->trapezoid = state.trapezoidPool.New();
+		rightChild->trapezoid->lowerVertexIndex = static_cast<int>(pointIndex);
+		rightChild->trapezoid->node = rightChild;
+
+		// Node for lower trapezoid.
+		leftChild->type = TrapezoidationTreeNode::Type::TRAPEZOID;
+		leftChild->parent = state.treeRootNode;
+		leftChild->trapezoid = state.trapezoidPool.New();
+		leftChild->trapezoid->upperVertexIndex = static_cast<int>(pointIndex);
+		leftChild->trapezoid->node = leftChild;
+
+		leftChild->trapezoid->upper1 = rightChild->trapezoid;
+		rightChild->trapezoid->lower1 = leftChild->trapezoid;
 
 		state.points[pointIndex].node = state.treeRootNode;
 
@@ -172,7 +172,20 @@ static TrapezoidationTreeNode* AddPoint(TrapezoidTreeState& state, size_t pointI
 
 			auto upperTrapezoidNode = state.treeNodePool.New();
 			auto lowerTrapezoidNode = state.treeNodePool.New();
+
+			// The new trapezoid node will reference the lower part of the trapezoid split by the vertex
+			// and become the left child of the new vertex node.
+			lowerTrapezoidNode->type = TrapezoidationTreeNode::Type::TRAPEZOID;
+			lowerTrapezoidNode->parent = node;
 			lowerTrapezoidNode->trapezoid = state.trapezoidPool.New();
+			lowerTrapezoidNode->trapezoid->upperVertexIndex = static_cast<int>(pointIndex);
+			lowerTrapezoidNode->trapezoid->lowerVertexIndex = node->trapezoid->lowerVertexIndex;
+			lowerTrapezoidNode->trapezoid->upper1 = node->trapezoid;
+			lowerTrapezoidNode->trapezoid->lower1 = node->trapezoid->lower1;
+			lowerTrapezoidNode->trapezoid->lower2 = node->trapezoid->lower2;
+			lowerTrapezoidNode->trapezoid->leftSegmentIndex = node->trapezoid->leftSegmentIndex;
+			lowerTrapezoidNode->trapezoid->rightSegmentIndex = node->trapezoid->rightSegmentIndex;
+			lowerTrapezoidNode->trapezoid->node = lowerTrapezoidNode;
 
 			// The old trapezoid node will reference the upper part of the trapezoid split by the vertex
 			// and become the right child of the new vertex node.
@@ -181,23 +194,7 @@ static TrapezoidationTreeNode* AddPoint(TrapezoidTreeState& state, size_t pointI
 			upperTrapezoidNode->trapezoid = node->trapezoid;	// Reuse the trapezoid we are splitting as an upper part.
 			upperTrapezoidNode->trapezoid->lowerVertexIndex = static_cast<int>(pointIndex);
 			upperTrapezoidNode->trapezoid->lower1 = lowerTrapezoidNode->trapezoid;
-			upperTrapezoidNode->trapezoid->lower2 = nullptr;
 			upperTrapezoidNode->trapezoid->node = upperTrapezoidNode;
-
-			// The new trapezoid node will reference the lower part of the trapezoid split by the vertex
-			// and become the left child of the new vertex node.
-			lowerTrapezoidNode->type = TrapezoidationTreeNode::Type::TRAPEZOID;
-			lowerTrapezoidNode->parent = node;
-			lowerTrapezoidNode->trapezoid->upperVertexIndex = static_cast<int>(pointIndex);
-			lowerTrapezoidNode->trapezoid->lowerVertexIndex = node->trapezoid->lowerVertexIndex;
-			lowerTrapezoidNode->trapezoid->upper1 = node->trapezoid;
-			lowerTrapezoidNode->trapezoid->upper2 = nullptr;
-			lowerTrapezoidNode->trapezoid->upper3 = nullptr;
-			lowerTrapezoidNode->trapezoid->lower1 = node->trapezoid->lower1;
-			lowerTrapezoidNode->trapezoid->lower2 = node->trapezoid->lower2;
-			lowerTrapezoidNode->trapezoid->leftSegmentIndex = node->trapezoid->leftSegmentIndex;
-			lowerTrapezoidNode->trapezoid->rightSegmentIndex = node->trapezoid->rightSegmentIndex;
-			lowerTrapezoidNode->trapezoid->node = lowerTrapezoidNode;
 
 			node->type = TrapezoidationTreeNode::Type::VERTEX;
 			node->elementIndex = pointIndex;
@@ -332,9 +329,9 @@ static void ThreadSegment(
 			if (segment.lowerPointIndex == l1->upperVertexIndex)
 			{
 				// Downward cusp. Update necessary only if this segment is creating the cusp from the right side.
-			//	if (lu1->rightSegmentIndex >= 0 &&
-			//		WhichSegmentSide(state.pointCoords[segment.upperPointIndex], state.segments[lu1->rightSegmentIndex]) == SegmentSide::Right)
-				if (leftTrap == lu2)
+				if (lu1->rightSegmentIndex >= 0 &&
+					WhichSegmentSide(state.pointCoords[segment.upperPointIndex], state.segments[lu1->rightSegmentIndex]) == SegmentSide::Right)
+			//	if (leftTrap == lu2)
 				{
 					leftTrap->lower1 = nullptr;
 					rightTrap->lower1 = l1;
@@ -378,6 +375,8 @@ static void ThreadSegment(
 		assert(0);
 	}
 
+	int rightSegIndex = leftTrap->rightSegmentIndex;
+
 	// Create new left trapezoid node.
 	leftTrapNode = state.treeNodePool.New();
 	leftTrapNode->type = TrapezoidationTreeNode::Type::TRAPEZOID;
@@ -393,6 +392,9 @@ static void ThreadSegment(
 	rightTrapNode->trapezoid = rightTrap;
 	rightTrapNode->trapezoid->node = rightTrapNode;
 	rightTrapNode->trapezoid->leftSegmentIndex = segmentIndex;
+	rightTrapNode->trapezoid->rightSegmentIndex = rightSegIndex;
+	rightTrapNode->trapezoid->upperVertexIndex = leftTrap->upperVertexIndex;
+	rightTrapNode->trapezoid->lowerVertexIndex = leftTrap->lowerVertexIndex;
 
 	// Change current trapezoid node into a segment node.
 	trapNode->type = TrapezoidationTreeNode::Type::SEGMENT;
@@ -567,7 +569,7 @@ static void DoEarClipping()
 
 bool TriangulatePolygon_Seidel(TrapezoidTreeState& state, std::vector<unsigned short>& outIndices)
 {
-	if (state.pointCoords == nullptr ||
+	if (//state.pointCoords == nullptr ||
 		state.numPoints < 3 ||
 		state.numPoints > std::numeric_limits<unsigned short>::max())
 	{
@@ -579,6 +581,7 @@ bool TriangulatePolygon_Seidel(TrapezoidTreeState& state, std::vector<unsigned s
 	const size_t maxNumTrapezoids = 3 * state.numPoints + 1;
 
 	//TrapezoidTreeState state { points, numPoints };
+	Trapezoid::nextNumber = 1;
 
 	BuildTrapezoidTree(state);
 	BuildYMonotoneChains();

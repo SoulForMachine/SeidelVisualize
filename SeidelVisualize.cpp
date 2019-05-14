@@ -27,14 +27,7 @@ SeidelVisualize::~SeidelVisualize()
 void SeidelVisualize::OnEditFinished()
 {
 	const auto& points = ui.widgetInputPolygon->GetPoints();
-	std::vector<unsigned short> outIndices;
-
-	delete _state;
-	_state = new Geometry::TrapezoidTreeState { points.data(), points.size() };
-
-	Geometry::TriangulatePolygon_Seidel(*_state, outIndices);
-
-	ui.widgetTrapTree->SetTreeState(_state);
+	TriangulateAndDisplay(points);
 }
 
 void SeidelVisualize::OnActionLoad()
@@ -64,14 +57,7 @@ void SeidelVisualize::OnActionLoad()
 	if (points.size() >= 3)
 	{
 		ui.widgetInputPolygon->SetPolygon(points);
-
-		delete _state;
-		_state = new Geometry::TrapezoidTreeState { points.data(), points.size() };
-
-		std::vector<unsigned short> outIndices;
-		Geometry::TriangulatePolygon_Seidel(*_state, outIndices);
-
-		ui.widgetTrapTree->SetTreeState(_state);
+		TriangulateAndDisplay(points);
 	}
 }
 
@@ -110,4 +96,63 @@ void SeidelVisualize::OnActionResetView()
 {
 	ui.widgetInputPolygon->ResetView();
 	ui.widgetTrapTree->ResetView();
+}
+
+void SeidelVisualize::TriangulateAndDisplay(const std::vector<math3d::vec2f>& points)
+{
+	delete _state;
+	_state = new Geometry::TrapezoidTreeState { points.data(), points.size() };
+
+	std::vector<unsigned short> outIndices;
+	Geometry::TriangulatePolygon_Seidel(*_state, outIndices);
+
+	ui.widgetTrapTree->SetTreeState(_state);
+	ui.widgetInputPolygon->SetTreeState(_state);
+
+	DumpLog();
+}
+
+void DumpTree(QTextStream& outStream, Geometry::TrapezoidationTreeNode* node)
+{
+	if (node->type == Geometry::TrapezoidationTreeNode::Type::TRAPEZOID)
+	{
+		auto trap = node->trapezoid;
+
+		outStream << "Trapezoid " << trap->number << "\n";
+		outStream << "upper vertex: " << trap->upperVertexIndex << "\n";
+		outStream << "lower vertex: " << trap->lowerVertexIndex << "\n";
+		outStream << "left segment: " << trap->leftSegmentIndex << "\n";
+		outStream << "right segment: " << trap->rightSegmentIndex << "\n";
+
+		outStream << "upper neighbours: "
+			<< (trap->upper1 ? trap->upper1->number : -1) << "  "
+			<< (trap->upper2 ? trap->upper2->number : -1) << "  "
+			<< (trap->upper3 ? trap->upper3->number : -1)
+			<< "\n";
+
+		outStream << "lower neighbours: "
+			<< (trap->lower1 ? trap->lower1->number : -1) << "  "
+			<< (trap->lower2 ? trap->lower2->number : -1)
+			<< "\n\n";
+	}
+	else
+	{
+		DumpTree(outStream, node->left);
+		DumpTree(outStream, node->right);
+	}
+}
+
+void SeidelVisualize::DumpLog()
+{
+	if (_state == nullptr)
+		return;
+
+	QString path = QApplication::applicationDirPath() + "\\tree-dump.txt";
+	QFile file { path };
+	if (file.open(QIODevice::WriteOnly | QIODevice::Text))
+	{
+		QTextStream outStream { &file };
+
+		DumpTree(outStream, _state->treeRootNode);
+	}
 }

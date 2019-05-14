@@ -27,6 +27,9 @@ private slots:
 	void OnActionResetView();
 
 private:
+	void TriangulateAndDisplay(const std::vector<math3d::vec2f>& points);
+	void DumpLog();
+
 	Ui::SeidelVisualizeClass ui;
 	Geometry::TrapezoidTreeState* _state = nullptr;
 };
