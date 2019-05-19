@@ -130,6 +130,9 @@ int TrapezoidationTreeWidget::GetTreeDepth(Geometry::TrapezoidationTreeNode* roo
 
 void TrapezoidationTreeWidget::DrawNode(QPainter& painter, Geometry::TrapezoidationTreeNode* node, const QPoint& position, int level)
 {
+	if (node == nullptr)
+		return;
+
 	QPoint leftPos, rightPos;
 
 	if (node->left)

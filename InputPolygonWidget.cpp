@@ -213,13 +213,17 @@ math3d::vec2i InputPolygonWidget::WorldToScreen(const math3d::vec2f& worldPt)
 
 void InputPolygonWidget::DrawTrapezoids(QPainter& painter, Geometry::TrapezoidationTreeNode* node)
 {
+	if (node == nullptr)
+		return;
+
 	if (node->type == Geometry::TrapezoidationTreeNode::Type::TRAPEZOID)
 	{
 		// Draw trapezoid numbers.
 		auto trap = node->trapezoid;
-		math3d::vec2f extend { (_aabBox.z - _aabBox.x) * 0.2f, (_aabBox.w - _aabBox.y) * 0.2f };
+		math3d::vec2f extend { 0.25f, 0.25f }; //{ (_aabBox.z - _aabBox.x) * 0.2f, (_aabBox.w - _aabBox.y) * 0.2f };
 
-		float up = 0, down = 0, left = 0, right = 0;
+		float up = 0, down = 0;
+		math3d::vec2f position { 0.0f, 0.0f };
 
 		if (trap->upperVertexIndex >= 0)
 			up = _state->pointCoords[trap->upperVertexIndex].y;
@@ -233,6 +237,7 @@ void InputPolygonWidget::DrawTrapezoids(QPainter& painter, Geometry::Trapezoidat
 
 		math3d::vec3f upperLine = math3d::line_from_points_2d(math3d::vec2f { 0.0f, up }, math3d::vec2f { 1.0f, up });
 		math3d::vec3f lowerLine = math3d::line_from_points_2d(math3d::vec2f { 0.0f, down }, math3d::vec2f { 1.0f, down });
+		math3d::vec2f midLeft, midRight;
 
 		if (trap->leftSegmentIndex >= 0)
 		{
@@ -240,12 +245,7 @@ void InputPolygonWidget::DrawTrapezoids(QPainter& painter, Geometry::Trapezoidat
 			auto& segment = _state->segments[trap->leftSegmentIndex];
 			math3d::intersect_lines_2d(upLeft, segment.line, upperLine);
 			math3d::intersect_lines_2d(lowLeft, segment.line, lowerLine);
-			left = std::min(upLeft.x, lowLeft.x);
-
-			/*auto ul = WorldToScreen(upLeft);
-			auto ll = WorldToScreen(lowLeft);
-			painter.drawEllipse({ ul.x, ul.y }, 5, 5);
-			painter.drawEllipse({ ll.x, ll.y }, 5, 5);*/
+			midLeft = (upLeft + lowLeft) / 2.0f;
 		}
 
 		if (trap->rightSegmentIndex >= 0)
@@ -254,38 +254,35 @@ void InputPolygonWidget::DrawTrapezoids(QPainter& painter, Geometry::Trapezoidat
 			auto& segment = _state->segments[trap->rightSegmentIndex];
 			math3d::intersect_lines_2d(upRight, segment.line, upperLine);
 			math3d::intersect_lines_2d(lowRight, segment.line, lowerLine);
-			right = std::max(upRight.x, lowRight.x);
-
-			/*auto ur = WorldToScreen(upRight);
-			auto lr = WorldToScreen(lowRight);
-			painter.drawEllipse({ ur.x, ur.y }, 5, 5);
-			painter.drawEllipse({ lr.x, lr.y }, 5, 5);*/
+			midRight = (upRight + lowRight) / 2.0f;
 		}
 
-		if (left == right)
+		if (trap->leftSegmentIndex >= 0 && trap->rightSegmentIndex >= 0)
 		{
-			float mid = (_aabBox.z + _aabBox.x) / 2.0f;
-			left = mid - extend.x;
-			right = mid + extend.x;
+			position = (midLeft + midRight) / 2.0f;
 		}
-
-		if (up == down)
+		else if (trap->leftSegmentIndex < 0 && trap->rightSegmentIndex >= 0)
 		{
-			float mid = (_aabBox.w + _aabBox.y) / 2.0f;
-			up = mid + extend.y;
-			down = mid - extend.y;
+			position.set(midRight.x - extend.x, midRight.y);
+		}
+		else if (trap->leftSegmentIndex >= 0 && trap->rightSegmentIndex < 0)
+		{
+			position.set(midLeft.x + extend.x, midLeft.y);
+		}
+		else
+		{
+			position.x = (_aabBox.x + _aabBox.z) / 2.0f;
+			
+			if (trap->upperVertexIndex >= 0)
+				position.y = _state->pointCoords[trap->upperVertexIndex].y - extend.y;
+			else if (trap->lowerVertexIndex >= 0)
+				position.y = _state->pointCoords[trap->lowerVertexIndex].y + extend.y;
 		}
 
-		math3d::vec4f wRect { left, up, right, down };
-		auto sLeftUp = WorldToScreen(math3d::vec2f { left, up });
-		auto sRightDown = WorldToScreen(math3d::vec2f { right, down });
-		QRect sRect {
-			QPoint { sLeftUp.x, sLeftUp.y },
-			QPoint { sRightDown.x, sRightDown.y}
-		};
+		auto scrPos = WorldToScreen(position);
 
 		painter.setPen(QPen { Qt::GlobalColor::red });
-		painter.drawText(sRect, QString::number(trap->number), QTextOption { Qt::AlignHCenter | Qt::AlignVCenter });
+		painter.drawText(scrPos.x, scrPos.y, QString::number(trap->number));
 
 		// Draw horizontal lines.
 		if (trap->upperVertexIndex >= 0)
@@ -298,19 +295,13 @@ void InputPolygonWidget::DrawTrapezoids(QPainter& painter, Geometry::Trapezoidat
 			if (trap->leftSegmentIndex >= 0)
 			{
 				auto& segment = _state->segments[trap->leftSegmentIndex];
-				if (math3d::intersect_lines_2d(wLeftPt, segment.line, horizLine))
-				{
-
-				}
+				math3d::intersect_lines_2d(wLeftPt, segment.line, horizLine);
 			}
 
 			if (trap->rightSegmentIndex >= 0)
 			{
 				auto& segment = _state->segments[trap->rightSegmentIndex];
-				if (math3d::intersect_lines_2d(wRightPt, segment.line, horizLine))
-				{
-
-				}
+				math3d::intersect_lines_2d(wRightPt, segment.line, horizLine);
 			}
 
 			auto sLeftPt = WorldToScreen(wLeftPt);

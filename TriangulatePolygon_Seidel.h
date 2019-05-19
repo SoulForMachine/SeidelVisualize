@@ -101,6 +101,8 @@ struct TrapezoidTreeState
 	BaseLib::PoolAllocator<Trapezoid> trapezoidPool;
 	BaseLib::PoolAllocator<TrapezoidationTreeNode> treeNodePool;
 	TrapezoidationTreeNode* treeRootNode;
+
+	size_t dbgSteps = 0;
 };
 
 

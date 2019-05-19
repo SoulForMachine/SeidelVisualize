@@ -30,6 +30,42 @@ void SeidelVisualize::OnEditFinished()
 	TriangulateAndDisplay(points);
 }
 
+void SeidelVisualize::keyPressEvent(QKeyEvent* event)
+{
+	if (event->key() == Qt::Key_Up)
+	{
+		_dbgSteps = std::numeric_limits<size_t>::max();
+		const auto& points = ui.widgetInputPolygon->GetPoints();
+		TriangulateAndDisplay(points);
+	}
+	else if (event->key() == Qt::Key_Down)
+	{
+		_dbgSteps = 0;
+		const auto& points = ui.widgetInputPolygon->GetPoints();
+		TriangulateAndDisplay(points);
+	}
+	else if (event->key() == Qt::Key_Left)
+	{
+		const auto& points = ui.widgetInputPolygon->GetPoints();
+
+		if (_dbgSteps > 0 && points.size() >= 3)
+		{
+			_dbgSteps -= 1;
+			TriangulateAndDisplay(points);
+		}
+	}
+	else if (event->key() == Qt::Key_Right)
+	{
+		const auto& points = ui.widgetInputPolygon->GetPoints();
+
+		if (points.size() >= 3)
+		{
+			_dbgSteps += 1;
+			TriangulateAndDisplay(points);
+		}
+	}
+}
+
 void SeidelVisualize::OnActionLoad()
 {
 	std::vector<math3d::vec2f> points;
@@ -102,6 +138,7 @@ void SeidelVisualize::TriangulateAndDisplay(const std::vector<math3d::vec2f>& po
 {
 	delete _state;
 	_state = new Geometry::TrapezoidTreeState { points.data(), points.size() };
+	_state->dbgSteps = _dbgSteps;
 
 	std::vector<unsigned short> outIndices;
 	Geometry::TriangulatePolygon_Seidel(*_state, outIndices);
@@ -114,6 +151,9 @@ void SeidelVisualize::TriangulateAndDisplay(const std::vector<math3d::vec2f>& po
 
 void DumpTree(QTextStream& outStream, Geometry::TrapezoidationTreeNode* node)
 {
+	if (node == nullptr)
+		return;
+
 	if (node->type == Geometry::TrapezoidationTreeNode::Type::TRAPEZOID)
 	{
 		auto trap = node->trapezoid;

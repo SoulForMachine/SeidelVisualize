@@ -173,27 +173,52 @@ static TrapezoidationTreeNode* AddPoint(TrapezoidTreeState& state, size_t pointI
 			auto upperTrapezoidNode = state.treeNodePool.New();
 			auto lowerTrapezoidNode = state.treeNodePool.New();
 
+			auto oldTrap = node->trapezoid;
+			auto newTrap = state.trapezoidPool.New();
+
 			// The new trapezoid node will reference the lower part of the trapezoid split by the vertex
 			// and become the left child of the new vertex node.
 			lowerTrapezoidNode->type = TrapezoidationTreeNode::Type::TRAPEZOID;
 			lowerTrapezoidNode->parent = node;
-			lowerTrapezoidNode->trapezoid = state.trapezoidPool.New();
+			lowerTrapezoidNode->trapezoid = newTrap;
 			lowerTrapezoidNode->trapezoid->upperVertexIndex = static_cast<int>(pointIndex);
-			lowerTrapezoidNode->trapezoid->lowerVertexIndex = node->trapezoid->lowerVertexIndex;
-			lowerTrapezoidNode->trapezoid->upper1 = node->trapezoid;
-			lowerTrapezoidNode->trapezoid->lower1 = node->trapezoid->lower1;
-			lowerTrapezoidNode->trapezoid->lower2 = node->trapezoid->lower2;
-			lowerTrapezoidNode->trapezoid->leftSegmentIndex = node->trapezoid->leftSegmentIndex;
-			lowerTrapezoidNode->trapezoid->rightSegmentIndex = node->trapezoid->rightSegmentIndex;
+			lowerTrapezoidNode->trapezoid->lowerVertexIndex = oldTrap->lowerVertexIndex;
+			lowerTrapezoidNode->trapezoid->upper1 = oldTrap;
+			lowerTrapezoidNode->trapezoid->lower1 = oldTrap->lower1;
+			lowerTrapezoidNode->trapezoid->lower2 = oldTrap->lower2;
+			lowerTrapezoidNode->trapezoid->leftSegmentIndex = oldTrap->leftSegmentIndex;
+			lowerTrapezoidNode->trapezoid->rightSegmentIndex = oldTrap->rightSegmentIndex;
 			lowerTrapezoidNode->trapezoid->node = lowerTrapezoidNode;
+
+			// For trapezoids below the old one, set the new trapezoid as their upper neighbour.
+			if (oldTrap->lower1 != nullptr)
+			{
+				if (oldTrap->lower1->upper1 == oldTrap)
+					oldTrap->lower1->upper1 = newTrap;
+				else if (oldTrap->lower1->upper2 == oldTrap)
+					oldTrap->lower1->upper2 = newTrap;
+
+				assert(oldTrap->lower1->upper3 == nullptr);
+			}
+
+			if (oldTrap->lower2 != nullptr)
+			{
+				if (oldTrap->lower2->upper1 == oldTrap)
+					oldTrap->lower2->upper1 = newTrap;
+				else if (oldTrap->lower2->upper2 == oldTrap)
+					oldTrap->lower2->upper2 = newTrap;
+			
+				assert(oldTrap->lower2->upper3 == nullptr);
+			}
 
 			// The old trapezoid node will reference the upper part of the trapezoid split by the vertex
 			// and become the right child of the new vertex node.
 			upperTrapezoidNode->type = TrapezoidationTreeNode::Type::TRAPEZOID;
 			upperTrapezoidNode->parent = node;
-			upperTrapezoidNode->trapezoid = node->trapezoid;	// Reuse the trapezoid we are splitting as an upper part.
+			upperTrapezoidNode->trapezoid = oldTrap;	// Reuse the trapezoid we are splitting as an upper part.
 			upperTrapezoidNode->trapezoid->lowerVertexIndex = static_cast<int>(pointIndex);
 			upperTrapezoidNode->trapezoid->lower1 = lowerTrapezoidNode->trapezoid;
+			upperTrapezoidNode->trapezoid->lower2 = nullptr;
 			upperTrapezoidNode->trapezoid->node = upperTrapezoidNode;
 
 			node->type = TrapezoidationTreeNode::Type::VERTEX;
@@ -296,23 +321,37 @@ static void ThreadSegment(
 
 	if (l1 != nullptr && l2 != nullptr)
 	{
-		// Two trapezoids below. Find out which one is intersected by this segment.
-		auto side = WhichSegmentSide(state.pointCoords[l1->upperVertexIndex], segment);
+		assert(l1->upperVertexIndex == l2->upperVertexIndex);
 
-		if (side == SegmentSide::Left)
+		// Two trapezoids below.
+		if (segment.lowerPointIndex == l1->upperVertexIndex)
 		{
-			nextTrapNode = l2->node;
+			// This segment connects with the segment below.
+			nextTrapNode = l1->node;	// Either one will do; segment threading ends here.
+			leftTrap->lower2 = nullptr;
 			rightTrap->lower1 = l2;
-			l2->upper2 = rightTrap;
+			l2->upper1 = rightTrap;
 		}
 		else
 		{
-			nextTrapNode = l1->node;
-			leftTrap->lower2 = nullptr;
-			rightTrap->lower1 = l1;
-			rightTrap->lower2 = l2;
-			l1->upper2 = rightTrap;
-			l2->upper1 = rightTrap;
+			// Find out which trapezoid below is intersected by this segment.
+			auto side = WhichSegmentSide(state.pointCoords[l1->upperVertexIndex], segment);
+
+			if (side == SegmentSide::Left)
+			{
+				nextTrapNode = l2->node;
+				rightTrap->lower1 = l2;
+				l2->upper2 = rightTrap;
+			}
+			else
+			{
+				nextTrapNode = l1->node;
+				leftTrap->lower2 = nullptr;
+				rightTrap->lower1 = l1;
+				rightTrap->lower2 = l2;
+				l1->upper2 = rightTrap;
+				l2->upper1 = rightTrap;
+			}
 		}
 	}
 	else if (l1 != nullptr)
@@ -517,8 +556,16 @@ static void AddSegment(TrapezoidTreeState& state, size_t segmentIndex)
 	if (state.points[segment.upperPointIndex].node == nullptr)
 		AddPoint(state, segment.upperPointIndex);
 
+	state.dbgSteps--;
+	if (state.dbgSteps == 0)
+		return;
+
 	if (state.points[segment.lowerPointIndex].node == nullptr)
 		AddPoint(state, segment.lowerPointIndex);
+
+	state.dbgSteps--;
+	if (state.dbgSteps == 0)
+		return;
 
 	// Thread the segment from its upper point to its lower point through trapezoids and split
 	// them in half.
@@ -541,6 +588,10 @@ static void AddSegment(TrapezoidTreeState& state, size_t segmentIndex)
 		prevRightTrapNode = MergeTrapezoids(prevRightTrapNode, rightTrapezoidNode);
 
 		trapezoidNode = nextTrapezoidNode;
+
+		state.dbgSteps--;
+		if (state.dbgSteps == 0)
+			return;
 	}
 }
 
@@ -553,7 +604,11 @@ static void BuildTrapezoidTree(TrapezoidTreeState& state)
 
 	// Add each segment to the tree.
 	for (size_t segInd : segmentIndices)
+	{
+		if (state.dbgSteps == 0)
+			break;
 		AddSegment(state, segInd);
+	}
 }
 
 static void BuildYMonotoneChains()

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <limits>
 #include <QtWidgets/QMainWindow>
 #include "ui_SeidelVisualize.h"
 
@@ -19,6 +20,9 @@ public:
 
 	virtual void OnEditFinished() override;
 
+protected:
+	virtual void keyPressEvent(QKeyEvent* event) override;
+
 private slots:
 
 	void OnActionLoad();
@@ -32,4 +36,5 @@ private:
 
 	Ui::SeidelVisualizeClass ui;
 	Geometry::TrapezoidTreeState* _state = nullptr;
+	size_t _dbgSteps = std::numeric_limits<size_t>::max();
 };
