@@ -49,7 +49,7 @@
      <height>21</height>
     </rect>
    </property>
-   <widget class="QMenu" name="menu_Commands">
+   <widget class="QMenu" name="menuCommands">
     <property name="title">
      <string>&amp;Commands</string>
     </property>
@@ -58,7 +58,17 @@
     <addaction name="actionReset"/>
     <addaction name="actionResetViews"/>
    </widget>
-   <addaction name="menu_Commands"/>
+   <widget class="QMenu" name="menuTrapezoidation">
+    <property name="title">
+     <string>Trapezoidation</string>
+    </property>
+    <addaction name="actionTrapToStart"/>
+    <addaction name="actionTrapToEnd"/>
+    <addaction name="actionTrapNextStep"/>
+    <addaction name="actionTrapPreviousStep"/>
+   </widget>
+   <addaction name="menuCommands"/>
+   <addaction name="menuTrapezoidation"/>
   </widget>
   <action name="actionLoad">
    <property name="text">
@@ -90,6 +100,38 @@
    </property>
    <property name="shortcut">
     <string>Home</string>
+   </property>
+  </action>
+  <action name="actionTrapToStart">
+   <property name="text">
+    <string>To start</string>
+   </property>
+   <property name="shortcut">
+    <string>Down</string>
+   </property>
+  </action>
+  <action name="actionTrapToEnd">
+   <property name="text">
+    <string>To end</string>
+   </property>
+   <property name="shortcut">
+    <string>Up</string>
+   </property>
+  </action>
+  <action name="actionTrapNextStep">
+   <property name="text">
+    <string>Next step</string>
+   </property>
+   <property name="shortcut">
+    <string>Right</string>
+   </property>
+  </action>
+  <action name="actionTrapPreviousStep">
+   <property name="text">
+    <string>Previous step</string>
+   </property>
+   <property name="shortcut">
+    <string>Left</string>
    </property>
   </action>
  </widget>

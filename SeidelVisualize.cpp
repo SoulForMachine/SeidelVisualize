@@ -17,6 +17,11 @@ SeidelVisualize::SeidelVisualize(QWidget *parent)
 	connect(ui.actionSave, &QAction::triggered, this, &SeidelVisualize::OnActionSave);
 	connect(ui.actionReset, &QAction::triggered, this, &SeidelVisualize::OnActionReset);
 	connect(ui.actionResetViews, &QAction::triggered, this, &SeidelVisualize::OnActionResetView);
+
+	connect(ui.actionTrapToStart, &QAction::triggered, this, &SeidelVisualize::OnActionTrapToStart);
+	connect(ui.actionTrapToEnd, &QAction::triggered, this, &SeidelVisualize::OnActionTrapToEnd);
+	connect(ui.actionTrapNextStep, &QAction::triggered, this, &SeidelVisualize::OnActionTrapNextStep);
+	connect(ui.actionTrapPreviousStep, &QAction::triggered, this, &SeidelVisualize::OnActionTrapPrevStep);
 }
 
 SeidelVisualize::~SeidelVisualize()
@@ -28,42 +33,6 @@ void SeidelVisualize::OnEditFinished()
 {
 	const auto& points = ui.widgetInputPolygon->GetPoints();
 	TriangulateAndDisplay(points);
-}
-
-void SeidelVisualize::keyPressEvent(QKeyEvent* event)
-{
-	if (event->key() == Qt::Key_Up)
-	{
-		_dbgSteps = std::numeric_limits<size_t>::max();
-		const auto& points = ui.widgetInputPolygon->GetPoints();
-		TriangulateAndDisplay(points);
-	}
-	else if (event->key() == Qt::Key_Down)
-	{
-		_dbgSteps = 0;
-		const auto& points = ui.widgetInputPolygon->GetPoints();
-		TriangulateAndDisplay(points);
-	}
-	else if (event->key() == Qt::Key_Left)
-	{
-		const auto& points = ui.widgetInputPolygon->GetPoints();
-
-		if (_dbgSteps > 0 && points.size() >= 3)
-		{
-			_dbgSteps -= 1;
-			TriangulateAndDisplay(points);
-		}
-	}
-	else if (event->key() == Qt::Key_Right)
-	{
-		const auto& points = ui.widgetInputPolygon->GetPoints();
-
-		if (points.size() >= 3)
-		{
-			_dbgSteps += 1;
-			TriangulateAndDisplay(points);
-		}
-	}
 }
 
 void SeidelVisualize::OnActionLoad()
@@ -134,6 +103,50 @@ void SeidelVisualize::OnActionResetView()
 	ui.widgetTrapTree->ResetView();
 }
 
+void SeidelVisualize::OnActionTrapToStart()
+{
+	const auto& points = ui.widgetInputPolygon->GetPoints();
+
+	if (points.size() >= 3)
+	{
+		_dbgSteps = 0;
+		TriangulateAndDisplay(points);
+	}
+}
+
+void SeidelVisualize::OnActionTrapToEnd()
+{
+	const auto& points = ui.widgetInputPolygon->GetPoints();
+
+	if (points.size() >= 3)
+	{
+		_dbgSteps = std::numeric_limits<size_t>::max();
+		TriangulateAndDisplay(points);
+	}
+}
+
+void SeidelVisualize::OnActionTrapNextStep()
+{
+	const auto& points = ui.widgetInputPolygon->GetPoints();
+
+	if (points.size() >= 3)
+	{
+		_dbgSteps += 1;
+		TriangulateAndDisplay(points);
+	}
+}
+
+void SeidelVisualize::OnActionTrapPrevStep()
+{
+	const auto& points = ui.widgetInputPolygon->GetPoints();
+
+	if (_dbgSteps > 0 && points.size() >= 3)
+	{
+		_dbgSteps -= 1;
+		TriangulateAndDisplay(points);
+	}
+}
+
 void SeidelVisualize::TriangulateAndDisplay(const std::vector<math3d::vec2f>& points)
 {
 	delete _state;
@@ -149,7 +162,7 @@ void SeidelVisualize::TriangulateAndDisplay(const std::vector<math3d::vec2f>& po
 	DumpLog();
 }
 
-void DumpTree(QTextStream& outStream, Geometry::TrapezoidationTreeNode* node)
+void SeidelVisualize::DumpTree(QTextStream& outStream, Geometry::TrapezoidationTreeNode* node)
 {
 	if (node == nullptr)
 		return;
@@ -157,6 +170,11 @@ void DumpTree(QTextStream& outStream, Geometry::TrapezoidationTreeNode* node)
 	if (node->type == Geometry::TrapezoidationTreeNode::Type::TRAPEZOID)
 	{
 		auto trap = node->trapezoid;
+
+		if (_dumpTrapSet.find(trap->number) != _dumpTrapSet.end())
+			return;
+
+		_dumpTrapSet.insert(trap->number);
 
 		outStream << "Trapezoid " << trap->number << "\n";
 		outStream << "upper vertex: " << trap->upperVertexIndex << "\n";
@@ -194,5 +212,6 @@ void SeidelVisualize::DumpLog()
 		QTextStream outStream { &file };
 
 		DumpTree(outStream, _state->treeRootNode);
+		_dumpTrapSet.clear();
 	}
 }

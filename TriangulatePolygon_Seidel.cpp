@@ -542,10 +542,50 @@ static TrapezoidationTreeNode* GetFirstTrapezoidForNewSegment(TrapezoidTreeState
 	return nullptr;
 }
 
-static TrapezoidationTreeNode* MergeTrapezoids(TrapezoidationTreeNode* prevTrapNode, TrapezoidationTreeNode* curTrapNode)
+static TrapezoidationTreeNode* MergeTrapezoids(TrapezoidTreeState& state, TrapezoidationTreeNode* prevTrapNode, TrapezoidationTreeNode* curTrapNode)
 {
+	if (prevTrapNode != nullptr)
+	{
+		auto prevTrap = prevTrapNode->trapezoid;
+		auto curTrap = curTrapNode->trapezoid;
+
+		if (prevTrap->leftSegmentIndex == curTrap->leftSegmentIndex &&
+			prevTrap->rightSegmentIndex == curTrap->rightSegmentIndex)
+		{
+			auto l1 = curTrap->lower1;
+			auto l2 = curTrap->lower2;
+
+			prevTrap->lower1 = l1;
+			prevTrap->lower2 = l2;
+			prevTrap->lowerVertexIndex = curTrap->lowerVertexIndex;
+
+			if (l1 != nullptr)
+			{
+				if (l1->upper1 == curTrap)
+					l1->upper1 = prevTrap;
+				else if (l1->upper2 == curTrap)
+					l1->upper2 = prevTrap;
+				else if (l1->upper3 == curTrap)
+					l1->upper3 = prevTrap;
+			}
+
+			if (l2 != nullptr)
+			{
+				if (l2->upper1 == curTrap)
+					l2->upper1 = prevTrap;
+				else if (l2->upper2 == curTrap)
+					l2->upper2 = prevTrap;
+				else if (l2->upper3 == curTrap)
+					l2->upper3 = prevTrap;
+			}
+
+			state.trapezoidPool.Delete(curTrap);
+			curTrapNode->trapezoid = prevTrap;
+		}
+	}
+
 	return curTrapNode;
-};
+}
 
 static void AddSegment(TrapezoidTreeState& state, size_t segmentIndex)
 {
@@ -584,8 +624,10 @@ static void AddSegment(TrapezoidTreeState& state, size_t segmentIndex)
 
 		ThreadSegment(state, segmentIndex, trapezoidNode, leftTrapezoidNode, rightTrapezoidNode, nextTrapezoidNode);
 
-		prevLeftTrapNode = MergeTrapezoids(prevLeftTrapNode, leftTrapezoidNode);
-		prevRightTrapNode = MergeTrapezoids(prevRightTrapNode, rightTrapezoidNode);
+		// After the split, merge left and right trapezoids with their upper neighbours if they are bounded by
+		// the same left and right segments.
+		prevLeftTrapNode = MergeTrapezoids(state, prevLeftTrapNode, leftTrapezoidNode);
+		prevRightTrapNode = MergeTrapezoids(state, prevRightTrapNode, rightTrapezoidNode);
 
 		trapezoidNode = nextTrapezoidNode;
 
