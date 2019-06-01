@@ -281,7 +281,7 @@ void InputPolygonWidget::DrawTrapezoids(QPainter& painter, Geometry::Trapezoidat
 
 		auto scrPos = WorldToScreen(position);
 
-		painter.setPen(QPen { Qt::GlobalColor::red });
+		painter.setPen(QPen { (trap->status == Geometry::Trapezoid::Status::Inside) ? Qt::GlobalColor::green : Qt::GlobalColor::red });
 		painter.drawText(scrPos.x, scrPos.y, QString::number(trap->number));
 
 		// Draw horizontal lines.

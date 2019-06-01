@@ -105,44 +105,46 @@ void SeidelVisualize::OnActionResetView()
 
 void SeidelVisualize::OnActionTrapToStart()
 {
+	_dbgSteps = 0;
 	const auto& points = ui.widgetInputPolygon->GetPoints();
 
 	if (points.size() >= 3)
 	{
-		_dbgSteps = 0;
 		TriangulateAndDisplay(points);
 	}
 }
 
 void SeidelVisualize::OnActionTrapToEnd()
 {
+	_dbgSteps = std::numeric_limits<size_t>::max();
 	const auto& points = ui.widgetInputPolygon->GetPoints();
 
 	if (points.size() >= 3)
 	{
-		_dbgSteps = std::numeric_limits<size_t>::max();
 		TriangulateAndDisplay(points);
 	}
 }
 
 void SeidelVisualize::OnActionTrapNextStep()
 {
+	_dbgSteps += 1;
 	const auto& points = ui.widgetInputPolygon->GetPoints();
 
 	if (points.size() >= 3)
 	{
-		_dbgSteps += 1;
 		TriangulateAndDisplay(points);
 	}
 }
 
 void SeidelVisualize::OnActionTrapPrevStep()
 {
+	if (_dbgSteps > 0)
+		_dbgSteps -= 1;
+
 	const auto& points = ui.widgetInputPolygon->GetPoints();
 
-	if (_dbgSteps > 0 && points.size() >= 3)
+	if (points.size() >= 3)
 	{
-		_dbgSteps -= 1;
 		TriangulateAndDisplay(points);
 	}
 }

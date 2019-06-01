@@ -2,6 +2,7 @@
 #define _BASE_LIB_INTERFACE_GEOMETRY_ALGORITHMS_H_
 
 #include <vector>
+#include <random>
 #include "vec2.h"
 #include "PoolAllocator.h"
 
@@ -57,7 +58,7 @@ struct Trapezoid
 	int leftSegmentIndex = -1;
 	int rightSegmentIndex = -1;
 	TrapezoidationTreeNode* node = nullptr;
-	Status state = Status::Outside;
+	Status status = Status::Outside;
 
 	const int number;
 	static int nextNumber;
@@ -94,13 +95,14 @@ struct TrapezoidTreeState
 {
 	TrapezoidTreeState(const math3d::vec2f* pts, size_t n);
 
-	size_t numPoints;
 	const std::vector<math3d::vec2f> pointCoords;
 	std::vector<Point> points;
 	std::vector<Segment> segments;
 	BaseLib::PoolAllocator<Trapezoid> trapezoidPool;
 	BaseLib::PoolAllocator<TrapezoidationTreeNode> treeNodePool;
 	TrapezoidationTreeNode* treeRootNode;
+	std::mt19937 rndEng { std::random_device{}() };
+	std::vector<Trapezoid*> trapezoids;
 
 	size_t dbgSteps = 0;
 };
