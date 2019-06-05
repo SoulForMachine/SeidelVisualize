@@ -510,7 +510,7 @@ static TrapezoidationTreeNode* GetFirstTrapezoidForNewSegment(TrapezoidTreeState
 						}
 						else
 						{
-							assert(false);
+						//	assert(false);
 							ptIndex = segment.upperPointIndex;
 						}
 
@@ -563,47 +563,52 @@ static TrapezoidationTreeNode* GetFirstTrapezoidForNewSegment(TrapezoidTreeState
 
 static TrapezoidationTreeNode* MergeTrapezoids(TrapezoidTreeState& state, TrapezoidationTreeNode* prevTrapNode, TrapezoidationTreeNode* curTrapNode)
 {
-	if (prevTrapNode != nullptr)
+	if (prevTrapNode == nullptr)
+		return curTrapNode;
+
+	auto prevTrap = prevTrapNode->trapezoid;
+	auto curTrap = curTrapNode->trapezoid;
+
+	if (prevTrap->leftSegmentIndex == curTrap->leftSegmentIndex &&
+		prevTrap->rightSegmentIndex == curTrap->rightSegmentIndex)
 	{
-		auto prevTrap = prevTrapNode->trapezoid;
-		auto curTrap = curTrapNode->trapezoid;
+		auto l1 = curTrap->lower1;
+		auto l2 = curTrap->lower2;
 
-		if (prevTrap->leftSegmentIndex == curTrap->leftSegmentIndex &&
-			prevTrap->rightSegmentIndex == curTrap->rightSegmentIndex)
+		prevTrap->lower1 = l1;
+		prevTrap->lower2 = l2;
+		prevTrap->lowerVertexIndex = curTrap->lowerVertexIndex;
+
+		if (l1 != nullptr)
 		{
-			auto l1 = curTrap->lower1;
-			auto l2 = curTrap->lower2;
-
-			prevTrap->lower1 = l1;
-			prevTrap->lower2 = l2;
-			prevTrap->lowerVertexIndex = curTrap->lowerVertexIndex;
-
-			if (l1 != nullptr)
-			{
-				if (l1->upper1 == curTrap)
-					l1->upper1 = prevTrap;
-				else if (l1->upper2 == curTrap)
-					l1->upper2 = prevTrap;
-				else if (l1->upper3 == curTrap)
-					l1->upper3 = prevTrap;
-			}
-
-			if (l2 != nullptr)
-			{
-				if (l2->upper1 == curTrap)
-					l2->upper1 = prevTrap;
-				else if (l2->upper2 == curTrap)
-					l2->upper2 = prevTrap;
-				else if (l2->upper3 == curTrap)
-					l2->upper3 = prevTrap;
-			}
-
-			DeallocateTrapezoid(state, curTrap);
-			curTrapNode->trapezoid = prevTrap;
+			if (l1->upper1 == curTrap)
+				l1->upper1 = prevTrap;
+			else if (l1->upper2 == curTrap)
+				l1->upper2 = prevTrap;
+			else if (l1->upper3 == curTrap)
+				l1->upper3 = prevTrap;
 		}
+
+		if (l2 != nullptr)
+		{
+			if (l2->upper1 == curTrap)
+				l2->upper1 = prevTrap;
+			else if (l2->upper2 == curTrap)
+				l2->upper2 = prevTrap;
+			else if (l2->upper3 == curTrap)
+				l2->upper3 = prevTrap;
+		}
+
+		if (curTrapNode->parent->left == curTrapNode)
+			curTrapNode->parent->left = prevTrapNode;
+		else if (curTrapNode->parent->right == curTrapNode)
+			curTrapNode->parent->right = prevTrapNode;
+
+		DeallocateTrapezoid(state, curTrap);
+		state.treeNodePool.Delete(curTrapNode);
 	}
 
-	return curTrapNode;
+	return prevTrapNode;
 }
 
 static void AddSegment(TrapezoidTreeState& state, size_t segmentIndex)

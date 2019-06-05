@@ -22,7 +22,7 @@ void TrapezoidationTreeWidget::SetTreeState(Geometry::TrapezoidTreeState* state)
 	if (state != nullptr)
 		UpdateNodeWeights(state->treeRootNode);
 		
-	ResetView();
+	update();
 }
 
 void TrapezoidationTreeWidget::ResetView()
