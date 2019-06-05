@@ -668,6 +668,24 @@ static TrapezoidationTreeNode* FindTrapezoidSegment(TrapezoidTreeState& state, T
 
 static void DetermineInsideTrapezoids(TrapezoidTreeState& state)
 {
+	auto countCrossings = [](TrapezoidTreeState& state, int segIndex, int& counter) {
+		auto& segment = state.segments[segIndex];
+		if (segIndex == static_cast<int>(state.segments.size()) - 1)
+		{
+			if (segment.upperPointIndex < segment.lowerPointIndex)
+				counter--;
+			else
+				counter++;
+		}
+		else
+		{
+			if (segment.upperPointIndex > segment.lowerPointIndex)
+				counter--;
+			else
+				counter++;
+		}
+	};
+
 	for (auto trap : state.trapezoids)
 	{
 		if (trap->lowerVertexIndex < 0 ||
@@ -698,23 +716,13 @@ static void DetermineInsideTrapezoids(TrapezoidTreeState& state)
 			{
 				if (node->elementIndex == trap->leftSegmentIndex)
 				{
-					auto& segment = state.segments[trap->leftSegmentIndex];
-					if (segment.upperPointIndex > segment.lowerPointIndex)
-						segmentCrossCounter--;
-					else
-						segmentCrossCounter++;
-
+					countCrossings(state, trap->leftSegmentIndex, segmentCrossCounter);
 					direction = SegmentSide::Left;
 					break;
 				}
 				else if (node->elementIndex == trap->rightSegmentIndex)
 				{
-					auto& segment = state.segments[trap->rightSegmentIndex];
-					if (segment.upperPointIndex > segment.lowerPointIndex)
-						segmentCrossCounter--;
-					else
-						segmentCrossCounter++;
-
+					countCrossings(state, trap->rightSegmentIndex, segmentCrossCounter);
 					direction = SegmentSide::Right;
 					break;
 				}
@@ -723,6 +731,7 @@ static void DetermineInsideTrapezoids(TrapezoidTreeState& state)
 
 		int vertexCount = 0;
 		bool finished = false;
+		node = (direction == SegmentSide::Left) ? node->left : node->right;
 
 		// From the segment node, traverse the tree downwards to left or right,
 		// depending on direction that was determined, until a trapezoid node
@@ -730,8 +739,6 @@ static void DetermineInsideTrapezoids(TrapezoidTreeState& state)
 		// with. Procede until a trapezoid without left or right segment is encountered.
 		while (!finished)
 		{
-			node = (direction == SegmentSide::Left) ? node->left : node->right;
-
 			if (node == nullptr)
 			{
 				assert(false);
@@ -778,15 +785,12 @@ static void DetermineInsideTrapezoids(TrapezoidTreeState& state)
 						if (node->type == TrapezoidationTreeNode::Type::SEGMENT &&
 							node->elementIndex == segmentIndex)
 						{
-							auto& segment = state.segments[segmentIndex];
-							if (segment.upperPointIndex > segment.lowerPointIndex)
-								segmentCrossCounter--;
-							else
-								segmentCrossCounter++;
-
+							countCrossings(state, segmentIndex, segmentCrossCounter);
 							break;
 						}
 					}
+
+					node = (direction == SegmentSide::Left) ? node->left : node->right;
 				}
 				else
 				{
@@ -819,7 +823,7 @@ static void BuildTrapezoidTree(TrapezoidTreeState& state)
 		AddSegment(state, segInd);
 	}
 
-//	DetermineInsideTrapezoids(state);
+	DetermineInsideTrapezoids(state);
 }
 
 static void BuildYMonotoneChains()
