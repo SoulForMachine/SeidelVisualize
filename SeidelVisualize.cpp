@@ -152,11 +152,10 @@ void SeidelVisualize::OnActionTrapPrevStep()
 void SeidelVisualize::TriangulateAndDisplay(const std::vector<math3d::vec2f>& points)
 {
 	delete _state;
-	_state = new Geometry::TrapezoidTreeState { points.data(), points.size() };
+	_state = new Geometry::TriangulationState { points.data(), points.size() };
 	_state->dbgSteps = _dbgSteps;
 
-	std::vector<unsigned short> outIndices;
-	Geometry::TriangulatePolygon_Seidel(*_state, outIndices);
+	Geometry::TriangulatePolygon_Seidel(*_state);
 
 	ui.widgetTrapTree->SetTreeState(_state);
 	ui.widgetInputPolygon->SetTreeState(_state);

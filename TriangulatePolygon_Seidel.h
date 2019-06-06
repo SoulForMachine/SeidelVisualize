@@ -91,9 +91,9 @@ struct TrapezoidationTreeNode
 };
 
 
-struct TrapezoidTreeState
+struct TriangulationState
 {
-	TrapezoidTreeState(const math3d::vec2f* pts, size_t n);
+	TriangulationState(const math3d::vec2f* pts, size_t n);
 
 	const std::vector<math3d::vec2f> pointCoords;
 	std::vector<Point> points;
@@ -103,6 +103,7 @@ struct TrapezoidTreeState
 	TrapezoidationTreeNode* treeRootNode;
 	std::mt19937 rndEng { std::random_device{}() };
 	std::vector<Trapezoid*> trapezoids;
+	std::vector<unsigned short> outIndices;
 
 	size_t dbgSteps = 0;
 };
@@ -115,7 +116,7 @@ struct TrapezoidTreeState
 // It is assumed that there are no equal points.
 // Output: an array of index triplets which form numPoints - 2 triangles by indexing into the input array of points.
 //
-bool TriangulatePolygon_Seidel(TrapezoidTreeState& state, std::vector<unsigned short>& outIndices);
+bool TriangulatePolygon_Seidel(TriangulationState& state);
 
 } // namespace BaseLib::Geometry
 

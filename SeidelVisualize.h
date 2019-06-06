@@ -7,7 +7,7 @@
 
 namespace Geometry
 {
-struct TrapezoidTreeState;
+struct TriangulationState;
 }
 
 
@@ -39,6 +39,6 @@ private:
 	void DumpLog();
 
 	Ui::SeidelVisualizeClass ui;
-	Geometry::TrapezoidTreeState* _state = nullptr;
+	Geometry::TriangulationState* _state = nullptr;
 	size_t _dbgSteps = std::numeric_limits<size_t>::max();
 };

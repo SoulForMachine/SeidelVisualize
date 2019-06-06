@@ -49,7 +49,7 @@ static SegmentSide WhichSegmentSide(const math3d::vec2f& point, const Segment& s
 		return SegmentSide::Right;
 }
 
-TrapezoidTreeState::TrapezoidTreeState(const math3d::vec2f* pts, size_t n) :
+TriangulationState::TriangulationState(const math3d::vec2f* pts, size_t n) :
 	pointCoords { pts, pts + n },
 	points { },
 	segments { },
@@ -88,14 +88,14 @@ TrapezoidTreeState::TrapezoidTreeState(const math3d::vec2f* pts, size_t n) :
 	}
 }
 
-static Trapezoid* AllocateTrapezoid(TrapezoidTreeState& state)
+static Trapezoid* AllocateTrapezoid(TriangulationState& state)
 {
 	auto newTrap = state.trapezoidPool.New();
 	state.trapezoids.push_back(newTrap);
 	return newTrap;
 }
 
-static void DeallocateTrapezoid(TrapezoidTreeState& state, Trapezoid* trapezoid)
+static void DeallocateTrapezoid(TriangulationState& state, Trapezoid* trapezoid)
 {
 	for (auto it = state.trapezoids.begin(); it != state.trapezoids.end(); ++it)
 	{
@@ -111,7 +111,7 @@ static void DeallocateTrapezoid(TrapezoidTreeState& state, Trapezoid* trapezoid)
 
 // Add the point to the tree and return a pointer to the point node.
 // If the point has already been inserted, return a pointer to an existing point node.
-static TrapezoidationTreeNode* AddPoint(TrapezoidTreeState& state, size_t pointIndex)
+static TrapezoidationTreeNode* AddPoint(TriangulationState& state, size_t pointIndex)
 {
 	// If the tree is empty, place a new vertex node as the root with two child trapezoid nodes.
 	if (state.treeRootNode == nullptr)
@@ -245,7 +245,7 @@ static TrapezoidationTreeNode* AddPoint(TrapezoidTreeState& state, size_t pointI
 }
 
 static void ThreadSegment(
-	TrapezoidTreeState& state,
+	TriangulationState& state,
 	size_t segmentIndex,
 	TrapezoidationTreeNode* trapNode,
 	TrapezoidationTreeNode*& leftTrapNode,
@@ -449,7 +449,7 @@ static void ThreadSegment(
 	trapNode->right = rightTrapNode;
 }
 
-static TrapezoidationTreeNode* GetFirstTrapezoidForNewSegment(TrapezoidTreeState& state, const Segment& segment)
+static TrapezoidationTreeNode* GetFirstTrapezoidForNewSegment(TriangulationState& state, const Segment& segment)
 {
 	TrapezoidationTreeNode* node = state.treeRootNode;
 
@@ -536,7 +536,7 @@ static TrapezoidationTreeNode* GetFirstTrapezoidForNewSegment(TrapezoidTreeState
 	return nullptr;
 }
 
-static TrapezoidationTreeNode* MergeTrapezoids(TrapezoidTreeState& state, TrapezoidationTreeNode* prevTrapNode, TrapezoidationTreeNode* curTrapNode)
+static TrapezoidationTreeNode* MergeTrapezoids(TriangulationState& state, TrapezoidationTreeNode* prevTrapNode, TrapezoidationTreeNode* curTrapNode)
 {
 	if (prevTrapNode == nullptr)
 		return curTrapNode;
@@ -587,7 +587,7 @@ static TrapezoidationTreeNode* MergeTrapezoids(TrapezoidTreeState& state, Trapez
 	return curTrapNode;
 }
 
-static void AddSegment(TrapezoidTreeState& state, size_t segmentIndex)
+static void AddSegment(TriangulationState& state, size_t segmentIndex)
 {
 	Segment& segment = state.segments[segmentIndex];
 
@@ -637,9 +637,9 @@ static void AddSegment(TrapezoidTreeState& state, size_t segmentIndex)
 	}
 }
 
-static void DetermineInsideTrapezoids(TrapezoidTreeState& state)
+static void DetermineInsideTrapezoids(TriangulationState& state)
 {
-	auto countCrossings = [](TrapezoidTreeState& state, int segIndex, int& counter) {
+	auto countCrossings = [](TriangulationState& state, int segIndex, int& counter) {
 		auto& segment = state.segments[segIndex];
 		if (segIndex == static_cast<int>(state.segments.size()) - 1)
 		{
@@ -778,13 +778,13 @@ static void DetermineInsideTrapezoids(TrapezoidTreeState& state)
 	}
 }
 
-static void BuildTrapezoidTree(TrapezoidTreeState& state)
+static void BuildTrapezoidTree(TriangulationState& state)
 {
 	// Generate random sequence of line segments.
 	std::vector<size_t> segmentIndices;
 	segmentIndices.resize(state.pointCoords.size());
 	std::iota(segmentIndices.begin(), segmentIndices.end(), 0);
-	std::shuffle(segmentIndices.begin(), segmentIndices.end(), state.rndEng);
+//	std::shuffle(segmentIndices.begin(), segmentIndices.end(), state.rndEng);
 
 	// Add each segment to the tree.
 	for (size_t segInd : segmentIndices)
@@ -808,7 +808,7 @@ static void DoEarClipping()
 }
 
 
-bool TriangulatePolygon_Seidel(TrapezoidTreeState& state, std::vector<unsigned short>& outIndices)
+bool TriangulatePolygon_Seidel(TriangulationState& state)
 {
 	size_t numPoints = state.pointCoords.size();
 

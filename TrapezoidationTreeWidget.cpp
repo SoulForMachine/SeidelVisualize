@@ -15,7 +15,7 @@ TrapezoidationTreeWidget::~TrapezoidationTreeWidget()
 {
 }
 
-void TrapezoidationTreeWidget::SetTreeState(Geometry::TrapezoidTreeState* state)
+void TrapezoidationTreeWidget::SetTreeState(Geometry::TriangulationState* state)
 {
 	_state = state;
 	//_numTreeLevels = (state != nullptr) ? GetTreeDepth(state->treeRootNode) : 0;

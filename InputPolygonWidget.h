@@ -10,7 +10,7 @@
 namespace Geometry
 {
 struct TrapezoidationTreeNode;
-struct TrapezoidTreeState;
+struct TriangulationState;
 struct Trapezoid;
 }
 
@@ -31,7 +31,7 @@ public:
 	~InputPolygonWidget();
 
 	void SetListener(InputPolygonWidgetListener* listener);
-	void SetTreeState(Geometry::TrapezoidTreeState* state);
+	void SetTreeState(Geometry::TriangulationState* state);
 	void ResetAndEdit();
 	const std::vector<math3d::vec2f>& GetPoints() const;
 	bool IsEditing() const { return _editing; }
@@ -55,7 +55,7 @@ private:
 	void DrawTrapezoids(QPainter& painter);
 	void RecalcBBox();
 
-	Geometry::TrapezoidTreeState* _state = nullptr;
+	Geometry::TriangulationState* _state = nullptr;
 	InputPolygonWidgetListener* _listener = nullptr;
 	math3d::vec2i _pan { 0, 0 };
 	float _zoom { 1.0f };

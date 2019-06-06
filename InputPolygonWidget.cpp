@@ -20,7 +20,7 @@ void InputPolygonWidget::SetListener(InputPolygonWidgetListener* listener)
 	_listener = listener;
 }
 
-void InputPolygonWidget::SetTreeState(Geometry::TrapezoidTreeState* state)
+void InputPolygonWidget::SetTreeState(Geometry::TriangulationState* state)
 {
 	if (!_editing)
 	{
@@ -241,18 +241,30 @@ void InputPolygonWidget::DrawTrapezoids(QPainter& painter)
 		{
 			math3d::vec2f upLeft, lowLeft;
 			auto& segment = _state->segments[trap->leftSegmentIndex];
-			math3d::intersect_lines_2d(upLeft, segment.line, upperLine);
-			math3d::intersect_lines_2d(lowLeft, segment.line, lowerLine);
-			midLeft = (upLeft + lowLeft) / 2.0f;
+			if (math3d::intersect_lines_2d(upLeft, segment.line, upperLine) &&
+				math3d::intersect_lines_2d(lowLeft, segment.line, lowerLine))
+			{
+				midLeft = (upLeft + lowLeft) / 2.0f;
+			}
+			else
+			{
+				midLeft = math3d::min(_state->pointCoords[segment.lowerPointIndex], _state->pointCoords[segment.upperPointIndex]);
+			}
 		}
 
 		if (trap->rightSegmentIndex >= 0)
 		{
 			math3d::vec2f upRight, lowRight;
 			auto& segment = _state->segments[trap->rightSegmentIndex];
-			math3d::intersect_lines_2d(upRight, segment.line, upperLine);
-			math3d::intersect_lines_2d(lowRight, segment.line, lowerLine);
-			midRight = (upRight + lowRight) / 2.0f;
+			if (math3d::intersect_lines_2d(upRight, segment.line, upperLine) &&
+				math3d::intersect_lines_2d(lowRight, segment.line, lowerLine))
+			{
+				midRight = (upRight + lowRight) / 2.0f;
+			}
+			else
+			{
+				midRight = math3d::max(_state->pointCoords[segment.lowerPointIndex], _state->pointCoords[segment.upperPointIndex]);
+			}
 		}
 
 		if (trap->leftSegmentIndex >= 0 && trap->rightSegmentIndex >= 0)

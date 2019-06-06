@@ -5,7 +5,7 @@
 namespace Geometry
 {
 struct TrapezoidationTreeNode;
-struct TrapezoidTreeState;
+struct TriangulationState;
 }
 
 
@@ -17,7 +17,7 @@ public:
 	TrapezoidationTreeWidget(QWidget *parent);
 	~TrapezoidationTreeWidget();
 	
-	void SetTreeState(Geometry::TrapezoidTreeState* state);
+	void SetTreeState(Geometry::TriangulationState* state);
 	void ResetView();
 
 protected:
@@ -35,7 +35,7 @@ private:
 	int GetTreeDepth(Geometry::TrapezoidationTreeNode* rootNode);
 	void DrawNode(QPainter& painter, Geometry::TrapezoidationTreeNode* node, const QPoint& position, int level);
 
-	Geometry::TrapezoidTreeState* _state = nullptr;
+	Geometry::TriangulationState* _state = nullptr;
 	QFont _font { "Verdana", 10 };
 	bool _panning = false;
 	QPoint _prevPanPos { 0, 0 };
