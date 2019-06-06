@@ -164,20 +164,13 @@ void SeidelVisualize::TriangulateAndDisplay(const std::vector<math3d::vec2f>& po
 	DumpLog();
 }
 
-void SeidelVisualize::DumpTree(QTextStream& outStream, Geometry::TrapezoidationTreeNode* node)
+void SeidelVisualize::DumpTree(QTextStream& outStream)
 {
-	if (node == nullptr)
+	if (_state == nullptr)
 		return;
 
-	if (node->type == Geometry::TrapezoidationTreeNode::Type::TRAPEZOID)
+	for (auto trap : _state->trapezoids)
 	{
-		auto trap = node->trapezoid;
-
-		if (_dumpTrapSet.find(trap->number) != _dumpTrapSet.end())
-			return;
-
-		_dumpTrapSet.insert(trap->number);
-
 		outStream << "Trapezoid " << trap->number << "\n";
 		outStream << "upper vertex: " << trap->upperVertexIndex << "\n";
 		outStream << "lower vertex: " << trap->lowerVertexIndex << "\n";
@@ -195,11 +188,6 @@ void SeidelVisualize::DumpTree(QTextStream& outStream, Geometry::TrapezoidationT
 			<< (trap->lower2 ? trap->lower2->number : -1)
 			<< "\n\n";
 	}
-	else
-	{
-		DumpTree(outStream, node->left);
-		DumpTree(outStream, node->right);
-	}
 }
 
 void SeidelVisualize::DumpLog()
@@ -213,7 +201,6 @@ void SeidelVisualize::DumpLog()
 	{
 		QTextStream outStream { &file };
 
-		DumpTree(outStream, _state->treeRootNode);
-		_dumpTrapSet.clear();
+		DumpTree(outStream);
 	}
 }

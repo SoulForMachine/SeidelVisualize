@@ -11,6 +11,7 @@ namespace Geometry
 {
 struct TrapezoidationTreeNode;
 struct TrapezoidTreeState;
+struct Trapezoid;
 }
 
 
@@ -51,7 +52,7 @@ private:
 
 	math3d::vec2f ScreenToWorld(const math3d::vec2i& screenPt);
 	math3d::vec2i WorldToScreen(const math3d::vec2f& worldPt);
-	void DrawTrapezoids(QPainter& painter, Geometry::TrapezoidationTreeNode* node);
+	void DrawTrapezoids(QPainter& painter);
 	void RecalcBBox();
 
 	Geometry::TrapezoidTreeState* _state = nullptr;

@@ -54,7 +54,7 @@ TrapezoidTreeState::TrapezoidTreeState(const math3d::vec2f* pts, size_t n) :
 	points { },
 	segments { },
 	trapezoidPool { 3 * n + 1 },
-	treeNodePool { (10 * n) + (3 * n + 1) },	//! better calculation needed
+	treeNodePool { n + (5 * n) + (3 * n + 1) },	//! better calculation needed
 	treeRootNode { nullptr }
 {
 	points.resize(n);
@@ -109,6 +109,8 @@ static void DeallocateTrapezoid(TrapezoidTreeState& state, Trapezoid* trapezoid)
 	state.trapezoidPool.Delete(trapezoid);
 }
 
+// Add the point to the tree and return a pointer to the point node.
+// If the point has already been inserted, return a pointer to an existing point node.
 static TrapezoidationTreeNode* AddPoint(TrapezoidTreeState& state, size_t pointIndex)
 {
 	// If the tree is empty, place a new vertex node as the root with two child trapezoid nodes.
@@ -157,29 +159,15 @@ static TrapezoidationTreeNode* AddPoint(TrapezoidTreeState& state, size_t pointI
 			if (pointIndex == node->elementIndex)
 				return node;
 
-			if (PointsVerticalRelation(state.pointCoords[pointIndex], state.pointCoords[node->elementIndex]) == VerticalRelation::Below)
-			{
-				node = node->left;
-			}
-			else // above
-			{
-				node = node->right;
-			}
-			
+			auto rel = PointsVerticalRelation(state.pointCoords[pointIndex], state.pointCoords[node->elementIndex]);
+			node = (rel == VerticalRelation::Below) ? node->left : node->right;
 			break;
 		}
 
 		case TrapezoidationTreeNode::Type::SEGMENT:
 		{
-			if (WhichSegmentSide(state.pointCoords[pointIndex], state.segments[node->elementIndex]) == SegmentSide::Left)
-			{
-				node = node->left;
-			}
-			else // right
-			{
-				node = node->right;
-			}
-
+			auto side = WhichSegmentSide(state.pointCoords[pointIndex], state.segments[node->elementIndex]);
+			node = (side == SegmentSide::Left) ? node->left : node->right;
 			break;
 		}
 
@@ -523,14 +511,8 @@ static TrapezoidationTreeNode* GetFirstTrapezoidForNewSegment(TrapezoidTreeState
 			}
 			else
 			{
-				if (PointsVerticalRelation(state.pointCoords[segment.upperPointIndex], state.pointCoords[node->elementIndex]) == VerticalRelation::Below)
-				{
-					node = node->left;
-				}
-				else // above
-				{
-					node = node->right;
-				}
+				auto rel = PointsVerticalRelation(state.pointCoords[segment.upperPointIndex], state.pointCoords[node->elementIndex]);
+				node = (rel == VerticalRelation::Below) ? node->left : node->right;
 			}
 
 			break;
@@ -538,15 +520,8 @@ static TrapezoidationTreeNode* GetFirstTrapezoidForNewSegment(TrapezoidTreeState
 
 		case TrapezoidationTreeNode::Type::SEGMENT:
 		{
-			if (WhichSegmentSide(state.pointCoords[segment.upperPointIndex], state.segments[node->elementIndex]) == SegmentSide::Left)
-			{
-				node = node->left;
-			}
-			else // right
-			{
-				node = node->right;
-			}
-
+			auto side = WhichSegmentSide(state.pointCoords[segment.upperPointIndex], state.segments[node->elementIndex]);
+			node = (side == SegmentSide::Left) ? node->left : node->right;
 			break;
 		}
 
@@ -606,9 +581,10 @@ static TrapezoidationTreeNode* MergeTrapezoids(TrapezoidTreeState& state, Trapez
 
 		DeallocateTrapezoid(state, curTrap);
 		state.treeNodePool.Delete(curTrapNode);
+		return prevTrapNode;
 	}
 
-	return prevTrapNode;
+	return curTrapNode;
 }
 
 static void AddSegment(TrapezoidTreeState& state, size_t segmentIndex)
@@ -659,11 +635,6 @@ static void AddSegment(TrapezoidTreeState& state, size_t segmentIndex)
 		if (state.dbgSteps == 0)
 			return;
 	}
-}
-
-static TrapezoidationTreeNode* FindTrapezoidSegment(TrapezoidTreeState& state, TrapezoidationTreeNode* trapNode, SegmentSide direction)
-{
-
 }
 
 static void DetermineInsideTrapezoids(TrapezoidTreeState& state)
@@ -813,7 +784,7 @@ static void BuildTrapezoidTree(TrapezoidTreeState& state)
 	std::vector<size_t> segmentIndices;
 	segmentIndices.resize(state.pointCoords.size());
 	std::iota(segmentIndices.begin(), segmentIndices.end(), 0);
-//	std::shuffle(segmentIndices.begin(), segmentIndices.end(), state.rndEng);
+	std::shuffle(segmentIndices.begin(), segmentIndices.end(), state.rndEng);
 
 	// Add each segment to the tree.
 	for (size_t segInd : segmentIndices)

@@ -35,11 +35,10 @@ private slots:
 
 private:
 	void TriangulateAndDisplay(const std::vector<math3d::vec2f>& points);
-	void DumpTree(QTextStream& outStream, Geometry::TrapezoidationTreeNode* node);
+	void DumpTree(QTextStream& outStream);
 	void DumpLog();
 
 	Ui::SeidelVisualizeClass ui;
 	Geometry::TrapezoidTreeState* _state = nullptr;
 	size_t _dbgSteps = std::numeric_limits<size_t>::max();
-	std::set<int> _dumpTrapSet;
 };

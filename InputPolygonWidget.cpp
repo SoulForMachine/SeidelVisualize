@@ -111,8 +111,7 @@ void InputPolygonWidget::paintEvent(QPaintEvent* event)
 	else
 	{
 		// Draw trapezoid horizontal lines and numbers.
-		if (_state != nullptr)
-			DrawTrapezoids(painter, _state->treeRootNode);
+		DrawTrapezoids(painter);
 	}
 }
 
@@ -211,15 +210,14 @@ math3d::vec2i InputPolygonWidget::WorldToScreen(const math3d::vec2f& worldPt)
 	return scrPt;
 }
 
-void InputPolygonWidget::DrawTrapezoids(QPainter& painter, Geometry::TrapezoidationTreeNode* node)
+void InputPolygonWidget::DrawTrapezoids(QPainter& painter)
 {
-	if (node == nullptr)
+	if (_state == nullptr)
 		return;
 
-	if (node->type == Geometry::TrapezoidationTreeNode::Type::TRAPEZOID)
+	for (auto trap : _state->trapezoids)
 	{
 		// Draw trapezoid numbers.
-		auto trap = node->trapezoid;
 		math3d::vec2f extend { 0.25f, 0.25f }; //{ (_aabBox.z - _aabBox.x) * 0.2f, (_aabBox.w - _aabBox.y) * 0.2f };
 
 		float up = 0, down = 0;
@@ -272,7 +270,7 @@ void InputPolygonWidget::DrawTrapezoids(QPainter& painter, Geometry::Trapezoidat
 		else
 		{
 			position.x = (_aabBox.x + _aabBox.z) / 2.0f;
-			
+
 			if (trap->upperVertexIndex >= 0)
 				position.y = _state->pointCoords[trap->upperVertexIndex].y - extend.y;
 			else if (trap->lowerVertexIndex >= 0)
@@ -281,8 +279,16 @@ void InputPolygonWidget::DrawTrapezoids(QPainter& painter, Geometry::Trapezoidat
 
 		auto scrPos = WorldToScreen(position);
 
-		painter.setPen(QPen { (trap->status == Geometry::Trapezoid::Status::Inside) ? Qt::GlobalColor::green : Qt::GlobalColor::red });
-		painter.drawText(scrPos.x, scrPos.y, QString::number(trap->number));
+		painter.setPen(QPen { (trap->status == Geometry::Trapezoid::Status::Inside) ? Qt::GlobalColor::darkGreen : Qt::GlobalColor::red });
+		auto strTrapNum = QString::number(trap->number);
+		QFontMetrics fontMetrics { _font, painter.device() };
+		auto textSize = fontMetrics.size(Qt::TextSingleLine, strTrapNum);
+		QRect textRect {
+			scrPos.x - textSize.width() / 2,
+			scrPos.y - textSize.height() / 2,
+			textSize.width(), textSize.height()
+		};
+		painter.drawText(textRect, strTrapNum);
 
 		// Draw horizontal lines.
 		if (trap->upperVertexIndex >= 0)
@@ -309,11 +315,6 @@ void InputPolygonWidget::DrawTrapezoids(QPainter& painter, Geometry::Trapezoidat
 			painter.setPen(QPen { Qt::darkGreen, 1, Qt::PenStyle::DashLine });
 			painter.drawLine(sLeftPt.x, sLeftPt.y, sRightPt.x, sRightPt.y);
 		}
-	}
-	else
-	{
-		DrawTrapezoids(painter, node->left);
-		DrawTrapezoids(painter, node->right);
 	}
 }
 
