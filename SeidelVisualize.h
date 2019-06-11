@@ -33,9 +33,13 @@ private slots:
 	void OnActionTrapNextStep();
 	void OnActionTrapPrevStep();
 
+	void OnActionViewTrapezoids();
+	void OnActionViewResult(QAction* action);
+
 private:
 	void TriangulateAndDisplay(const std::vector<math3d::vec2f>& points);
 	void DumpTree(QTextStream& outStream);
+	void DumpMonChains(QTextStream& outStream);
 	void DumpLog();
 
 	Ui::SeidelVisualizeClass ui;

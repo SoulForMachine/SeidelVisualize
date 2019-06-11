@@ -155,7 +155,7 @@ void TrapezoidationTreeWidget::DrawNode(QPainter& painter, Geometry::Trapezoidat
 
 	switch (node->type)
 	{
-	case Geometry::TrapezoidationTreeNode::Type::VERTEX:
+	case Geometry::TrapezoidationTreeNode::Type::POINT:
 	{
 		QPoint halfSize { 20, 20 };
 		QRect rect { position - halfSize, position + halfSize };

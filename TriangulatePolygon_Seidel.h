@@ -47,8 +47,8 @@ struct Trapezoid
 		Outside
 	};
 
-	int upperVertexIndex = -1;
-	int lowerVertexIndex = -1;
+	int upperPointIndex = -1;
+	int lowerPointIndex = -1;
 	Trapezoid* upper1 = nullptr;
 	Trapezoid* upper2 = nullptr;
 	Trapezoid* upper3 = nullptr;
@@ -59,6 +59,7 @@ struct Trapezoid
 	int rightSegmentIndex = -1;
 	TrapezoidationTreeNode* node = nullptr;
 	Status status = Status::Outside;
+	bool visited = false;
 
 	const int number;
 	static int nextNumber;
@@ -69,7 +70,7 @@ struct TrapezoidationTreeNode
 {
 	enum class Type
 	{
-		VERTEX,
+		POINT,
 		SEGMENT,
 		TRAPEZOID
 	};
@@ -104,6 +105,8 @@ struct TriangulationState
 	std::mt19937 rndEng { std::random_device{}() };
 	std::vector<Trapezoid*> trapezoids;
 	std::vector<unsigned short> outIndices;
+	std::vector<std::vector<int>> monChains;
+	bool randomizeSegments;
 
 	size_t dbgSteps = 0;
 };

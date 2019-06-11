@@ -13,6 +13,16 @@ SeidelVisualize::SeidelVisualize(QWidget *parent)
 
 	ui.widgetInputPolygon->SetListener(this);
 
+	auto actionGroupResults = new QActionGroup { this };
+	actionGroupResults->addAction(ui.actionViewMonotoneChains);
+	actionGroupResults->addAction(ui.actionViewTriangles);
+	if (ui.widgetInputPolygon->GetResultViewType() == InputPolygonWidget::ResultViewType::Triangles)
+		ui.actionViewTriangles->setChecked(true);
+	else
+		ui.actionViewMonotoneChains->setChecked(true);
+
+	ui.actionViewTrapezoids->setChecked(ui.widgetInputPolygon->GetViewTrapezoids());
+
 	connect(ui.actionLoad, &QAction::triggered, this, &SeidelVisualize::OnActionLoad);
 	connect(ui.actionSave, &QAction::triggered, this, &SeidelVisualize::OnActionSave);
 	connect(ui.actionReset, &QAction::triggered, this, &SeidelVisualize::OnActionReset);
@@ -22,6 +32,9 @@ SeidelVisualize::SeidelVisualize(QWidget *parent)
 	connect(ui.actionTrapToEnd, &QAction::triggered, this, &SeidelVisualize::OnActionTrapToEnd);
 	connect(ui.actionTrapNextStep, &QAction::triggered, this, &SeidelVisualize::OnActionTrapNextStep);
 	connect(ui.actionTrapPreviousStep, &QAction::triggered, this, &SeidelVisualize::OnActionTrapPrevStep);
+
+	connect(ui.actionViewTrapezoids, &QAction::triggered, this, &SeidelVisualize::OnActionViewTrapezoids);
+	connect(actionGroupResults, &QActionGroup::triggered, this, &SeidelVisualize::OnActionViewResult);
 }
 
 SeidelVisualize::~SeidelVisualize()
@@ -39,7 +52,7 @@ void SeidelVisualize::OnActionLoad()
 {
 	std::vector<math3d::vec2f> points;
 
-	auto fileName = QFileDialog::getOpenFileName(this, "Load polygon", QApplication::applicationDirPath(), "Polygon files (*.poly)");
+	auto fileName = QFileDialog::getOpenFileName(this, "Load polygon", "", "Polygon files (*.poly)");
 
 	if (!fileName.isEmpty())
 	{
@@ -72,7 +85,7 @@ void SeidelVisualize::OnActionSave()
 	{
 		const auto& points = ui.widgetInputPolygon->GetPoints();
 
-		auto fileName = QFileDialog::getSaveFileName(this, "Save polygon", QApplication::applicationDirPath(), "Polygon files (*.poly)");
+		auto fileName = QFileDialog::getSaveFileName(this, "Save polygon", "", "Polygon files (*.poly)");
 
 		if (!fileName.isEmpty())
 		{
@@ -149,10 +162,23 @@ void SeidelVisualize::OnActionTrapPrevStep()
 	}
 }
 
+void SeidelVisualize::OnActionViewTrapezoids()
+{
+	ui.widgetInputPolygon->SetViewTrapezoids(!ui.widgetInputPolygon->GetViewTrapezoids());
+}
+
+void SeidelVisualize::OnActionViewResult(QAction* action)
+{
+	ui.widgetInputPolygon->SetResultViewType(
+		(action == ui.actionViewTriangles) ? InputPolygonWidget::ResultViewType::Triangles : InputPolygonWidget::ResultViewType::MonotoneChains
+	);
+}
+
 void SeidelVisualize::TriangulateAndDisplay(const std::vector<math3d::vec2f>& points)
 {
 	delete _state;
 	_state = new Geometry::TriangulationState { points.data(), points.size() };
+	_state->randomizeSegments = false;
 	_state->dbgSteps = _dbgSteps;
 
 	Geometry::TriangulatePolygon_Seidel(*_state);
@@ -171,8 +197,8 @@ void SeidelVisualize::DumpTree(QTextStream& outStream)
 	for (auto trap : _state->trapezoids)
 	{
 		outStream << "Trapezoid " << trap->number << "\n";
-		outStream << "upper vertex: " << trap->upperVertexIndex << "\n";
-		outStream << "lower vertex: " << trap->lowerVertexIndex << "\n";
+		outStream << "upper vertex: " << trap->upperPointIndex << "\n";
+		outStream << "lower vertex: " << trap->lowerPointIndex << "\n";
 		outStream << "left segment: " << trap->leftSegmentIndex << "\n";
 		outStream << "right segment: " << trap->rightSegmentIndex << "\n";
 
@@ -189,17 +215,43 @@ void SeidelVisualize::DumpTree(QTextStream& outStream)
 	}
 }
 
+void SeidelVisualize::DumpMonChains(QTextStream& outStream)
+{
+	if (_state == nullptr)
+		return;
+
+	for (auto& monChain : _state->monChains)
+	{
+		for (int vertInd : monChain)
+			outStream << vertInd << "  ";
+		outStream << "\n";
+	}
+}
+
 void SeidelVisualize::DumpLog()
 {
 	if (_state == nullptr)
 		return;
 
-	QString path = QApplication::applicationDirPath() + "\\tree-dump.txt";
-	QFile file { path };
-	if (file.open(QIODevice::WriteOnly | QIODevice::Text))
 	{
-		QTextStream outStream { &file };
+		QString path = QApplication::applicationDirPath() + "\\tree-dump.txt";
+		QFile file { path };
+		if (file.open(QIODevice::WriteOnly | QIODevice::Text))
+		{
+			QTextStream outStream { &file };
 
-		DumpTree(outStream);
+			DumpTree(outStream);
+		}
+	}
+
+	{
+		QString path = QApplication::applicationDirPath() + "\\mon-chains-dump.txt";
+		QFile file { path };
+		if (file.open(QIODevice::WriteOnly | QIODevice::Text))
+		{
+			QTextStream outStream { &file };
+
+			DumpMonChains(outStream);
+		}
 	}
 }

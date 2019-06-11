@@ -67,8 +67,18 @@
     <addaction name="actionTrapNextStep"/>
     <addaction name="actionTrapPreviousStep"/>
    </widget>
+   <widget class="QMenu" name="menuView">
+    <property name="title">
+     <string>View</string>
+    </property>
+    <addaction name="actionViewTrapezoids"/>
+    <addaction name="separator"/>
+    <addaction name="actionViewMonotoneChains"/>
+    <addaction name="actionViewTriangles"/>
+   </widget>
    <addaction name="menuCommands"/>
    <addaction name="menuTrapezoidation"/>
+   <addaction name="menuView"/>
   </widget>
   <action name="actionLoad">
    <property name="text">
@@ -132,6 +142,44 @@
    </property>
    <property name="shortcut">
     <string>Left</string>
+   </property>
+  </action>
+  <action name="actionViewTrapezoids">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Trapezoids</string>
+   </property>
+   <property name="shortcut">
+    <string>F2</string>
+   </property>
+  </action>
+  <action name="action">
+   <property name="text">
+    <string>-</string>
+   </property>
+  </action>
+  <action name="actionViewMonotoneChains">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Monotone chains</string>
+   </property>
+   <property name="shortcut">
+    <string>F3</string>
+   </property>
+  </action>
+  <action name="actionViewTriangles">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Triangles</string>
+   </property>
+   <property name="shortcut">
+    <string>F4</string>
    </property>
   </action>
  </widget>

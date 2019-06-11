@@ -58,6 +58,18 @@ void InputPolygonWidget::ResetView()
 	update();
 }
 
+void InputPolygonWidget::SetViewTrapezoids(bool view)
+{
+	_viewTraps = view;
+	update();
+}
+
+void InputPolygonWidget::SetResultViewType(ResultViewType type)
+{
+	_resultViewType = type;
+	update();
+}
+
 void InputPolygonWidget::paintEvent(QPaintEvent* event)
 {
 	QPainter painter { this };
@@ -111,7 +123,19 @@ void InputPolygonWidget::paintEvent(QPaintEvent* event)
 	else
 	{
 		// Draw trapezoid horizontal lines and numbers.
-		DrawTrapezoids(painter);
+		if (_viewTraps)
+			DrawTrapezoids(painter);
+
+		switch (_resultViewType)
+		{
+		case ResultViewType::Triangles:
+			DrawTriangles(painter);
+			break;
+
+		case ResultViewType::MonotoneChains:
+			DrawMonotoneChains(painter);
+			break;
+		}
 	}
 }
 
@@ -223,15 +247,15 @@ void InputPolygonWidget::DrawTrapezoids(QPainter& painter)
 		float up = 0, down = 0;
 		math3d::vec2f position { 0.0f, 0.0f };
 
-		if (trap->upperVertexIndex >= 0)
-			up = _state->pointCoords[trap->upperVertexIndex].y;
+		if (trap->upperPointIndex >= 0)
+			up = _state->pointCoords[trap->upperPointIndex].y;
 		else
-			up = _state->pointCoords[trap->lowerVertexIndex].y + extend.y;
+			up = _state->pointCoords[trap->lowerPointIndex].y + extend.y;
 
-		if (trap->lowerVertexIndex >= 0)
-			down = _state->pointCoords[trap->lowerVertexIndex].y;
+		if (trap->lowerPointIndex >= 0)
+			down = _state->pointCoords[trap->lowerPointIndex].y;
 		else
-			down = _state->pointCoords[trap->upperVertexIndex].y - extend.y;
+			down = _state->pointCoords[trap->upperPointIndex].y - extend.y;
 
 		math3d::vec3f upperLine = math3d::line_from_points_2d(math3d::vec2f { 0.0f, up }, math3d::vec2f { 1.0f, up });
 		math3d::vec3f lowerLine = math3d::line_from_points_2d(math3d::vec2f { 0.0f, down }, math3d::vec2f { 1.0f, down });
@@ -283,10 +307,10 @@ void InputPolygonWidget::DrawTrapezoids(QPainter& painter)
 		{
 			position.x = (_aabBox.x + _aabBox.z) / 2.0f;
 
-			if (trap->upperVertexIndex >= 0)
-				position.y = _state->pointCoords[trap->upperVertexIndex].y - extend.y;
-			else if (trap->lowerVertexIndex >= 0)
-				position.y = _state->pointCoords[trap->lowerVertexIndex].y + extend.y;
+			if (trap->upperPointIndex >= 0)
+				position.y = _state->pointCoords[trap->upperPointIndex].y - extend.y;
+			else if (trap->lowerPointIndex >= 0)
+				position.y = _state->pointCoords[trap->lowerPointIndex].y + extend.y;
 		}
 
 		auto scrPos = WorldToScreen(position);
@@ -303,9 +327,9 @@ void InputPolygonWidget::DrawTrapezoids(QPainter& painter)
 		painter.drawText(textRect, strTrapNum);
 
 		// Draw horizontal lines.
-		if (trap->upperVertexIndex >= 0)
+		if (trap->upperPointIndex >= 0)
 		{
-			math3d::vec2f wUpperPt = _state->pointCoords[trap->upperVertexIndex];
+			math3d::vec2f wUpperPt = _state->pointCoords[trap->upperPointIndex];
 			auto horizLine = math3d::line_from_points_2d(wUpperPt, wUpperPt + math3d::vec2f { 1.0f, 0.0f });
 			math3d::vec2f wLeftPt { _aabBox.x - extend.x, wUpperPt.y };
 			math3d::vec2f wRightPt { _aabBox.z + extend.x, wUpperPt.y };
@@ -327,6 +351,31 @@ void InputPolygonWidget::DrawTrapezoids(QPainter& painter)
 			painter.setPen(QPen { Qt::darkGreen, 1, Qt::PenStyle::DashLine });
 			painter.drawLine(sLeftPt.x, sLeftPt.y, sRightPt.x, sRightPt.y);
 		}
+	}
+}
+
+void InputPolygonWidget::DrawTriangles(QPainter& painter)
+{
+}
+
+void InputPolygonWidget::DrawMonotoneChains(QPainter& painter)
+{
+	if (_state == nullptr)
+		return;
+
+	painter.setPen(QPen { Qt::cyan });
+
+	for (auto& chain : _state->monChains)
+	{
+		std::vector<QPoint> points;
+
+		for (auto ptInd : chain)
+		{
+			auto scrPt = WorldToScreen(_state->pointCoords[ptInd]);
+			points.push_back(QPoint { scrPt.x, scrPt.y });
+		}
+
+		painter.drawPolyline(points.data(), static_cast<int>(points.size()));
 	}
 }
 

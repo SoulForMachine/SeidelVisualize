@@ -27,6 +27,12 @@ class InputPolygonWidget : public QWidget
 	Q_OBJECT
 
 public:
+	enum class ResultViewType
+	{
+		Triangles,
+		MonotoneChains
+	};
+
 	InputPolygonWidget(QWidget *parent);
 	~InputPolygonWidget();
 
@@ -37,6 +43,11 @@ public:
 	bool IsEditing() const { return _editing; }
 	void SetPolygon(const std::vector<math3d::vec2f>& points);
 	void ResetView();
+
+	bool GetViewTrapezoids() const { return _viewTraps; }
+	void SetViewTrapezoids(bool view);
+	ResultViewType GetResultViewType() const { return _resultViewType; }
+	void SetResultViewType(ResultViewType type);
 
 protected:
 	virtual void paintEvent(QPaintEvent* event) override;
@@ -53,6 +64,8 @@ private:
 	math3d::vec2f ScreenToWorld(const math3d::vec2i& screenPt);
 	math3d::vec2i WorldToScreen(const math3d::vec2f& worldPt);
 	void DrawTrapezoids(QPainter& painter);
+	void DrawTriangles(QPainter& painter);
+	void DrawMonotoneChains(QPainter& painter);
 	void RecalcBBox();
 
 	Geometry::TriangulationState* _state = nullptr;
@@ -67,4 +80,6 @@ private:
 	bool _initPan = true;
 	QFont _font { "Verdana", 10 };
 	math3d::vec4f _aabBox;
+	bool _viewTraps = true;
+	ResultViewType _resultViewType = ResultViewType::MonotoneChains;
 };

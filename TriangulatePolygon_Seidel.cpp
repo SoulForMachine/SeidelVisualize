@@ -19,7 +19,7 @@ enum class VerticalRelation
 };
 
 
-enum class SegmentSide
+enum class Side
 {
 	Left,
 	Right
@@ -41,12 +41,12 @@ static VerticalRelation PointsVerticalRelation(const math3d::vec2f& queryPoint, 
 }
 
 
-static SegmentSide WhichSegmentSide(const math3d::vec2f& point, const Segment& segment)
+static Side WhichSegmentSide(const math3d::vec2f& point, const Segment& segment)
 {
 	if (math3d::point_to_line_sgn_dist_2d(point, segment.line) > 0.0f)
-		return SegmentSide::Left;
+		return Side::Left;
 	else
-		return SegmentSide::Right;
+		return Side::Right;
 }
 
 TriangulationState::TriangulationState(const math3d::vec2f* pts, size_t n) :
@@ -55,7 +55,8 @@ TriangulationState::TriangulationState(const math3d::vec2f* pts, size_t n) :
 	segments { },
 	trapezoidPool { 3 * n + 1 },
 	treeNodePool { n + (5 * n) + (3 * n + 1) },	//! better calculation needed
-	treeRootNode { nullptr }
+	treeRootNode { nullptr },
+	randomizeSegments { true }
 {
 	points.resize(n);
 
@@ -120,7 +121,7 @@ static TrapezoidationTreeNode* AddPoint(TriangulationState& state, size_t pointI
 		auto leftChild = state.treeNodePool.New();
 
 		state.treeRootNode = state.treeNodePool.New();
-		state.treeRootNode->type = TrapezoidationTreeNode::Type::VERTEX;
+		state.treeRootNode->type = TrapezoidationTreeNode::Type::POINT;
 		state.treeRootNode->elementIndex = pointIndex;
 		state.treeRootNode->left = leftChild;
 		state.treeRootNode->right = rightChild;
@@ -129,14 +130,14 @@ static TrapezoidationTreeNode* AddPoint(TriangulationState& state, size_t pointI
 		rightChild->type = TrapezoidationTreeNode::Type::TRAPEZOID;
 		rightChild->parent = state.treeRootNode;
 		rightChild->trapezoid = AllocateTrapezoid(state);
-		rightChild->trapezoid->lowerVertexIndex = static_cast<int>(pointIndex);
+		rightChild->trapezoid->lowerPointIndex = static_cast<int>(pointIndex);
 		rightChild->trapezoid->node = rightChild;
 
 		// Node for lower trapezoid.
 		leftChild->type = TrapezoidationTreeNode::Type::TRAPEZOID;
 		leftChild->parent = state.treeRootNode;
 		leftChild->trapezoid = AllocateTrapezoid(state);
-		leftChild->trapezoid->upperVertexIndex = static_cast<int>(pointIndex);
+		leftChild->trapezoid->upperPointIndex = static_cast<int>(pointIndex);
 		leftChild->trapezoid->node = leftChild;
 
 		leftChild->trapezoid->upper1 = rightChild->trapezoid;
@@ -153,7 +154,7 @@ static TrapezoidationTreeNode* AddPoint(TriangulationState& state, size_t pointI
 	{
 		switch (node->type)
 		{
-		case TrapezoidationTreeNode::Type::VERTEX:
+		case TrapezoidationTreeNode::Type::POINT:
 		{
 			// If this is the same vertex, return the existing node.
 			if (pointIndex == node->elementIndex)
@@ -167,7 +168,7 @@ static TrapezoidationTreeNode* AddPoint(TriangulationState& state, size_t pointI
 		case TrapezoidationTreeNode::Type::SEGMENT:
 		{
 			auto side = WhichSegmentSide(state.pointCoords[pointIndex], state.segments[node->elementIndex]);
-			node = (side == SegmentSide::Left) ? node->left : node->right;
+			node = (side == Side::Left) ? node->left : node->right;
 			break;
 		}
 
@@ -188,8 +189,8 @@ static TrapezoidationTreeNode* AddPoint(TriangulationState& state, size_t pointI
 			lowerTrapezoidNode->type = TrapezoidationTreeNode::Type::TRAPEZOID;
 			lowerTrapezoidNode->parent = node;
 			lowerTrapezoidNode->trapezoid = newTrap;
-			lowerTrapezoidNode->trapezoid->upperVertexIndex = static_cast<int>(pointIndex);
-			lowerTrapezoidNode->trapezoid->lowerVertexIndex = oldTrap->lowerVertexIndex;
+			lowerTrapezoidNode->trapezoid->upperPointIndex = static_cast<int>(pointIndex);
+			lowerTrapezoidNode->trapezoid->lowerPointIndex = oldTrap->lowerPointIndex;
 			lowerTrapezoidNode->trapezoid->upper1 = oldTrap;
 			lowerTrapezoidNode->trapezoid->lower1 = oldTrap->lower1;
 			lowerTrapezoidNode->trapezoid->lower2 = oldTrap->lower2;
@@ -223,12 +224,12 @@ static TrapezoidationTreeNode* AddPoint(TriangulationState& state, size_t pointI
 			upperTrapezoidNode->type = TrapezoidationTreeNode::Type::TRAPEZOID;
 			upperTrapezoidNode->parent = node;
 			upperTrapezoidNode->trapezoid = oldTrap;	// Reuse the trapezoid we are splitting as an upper part.
-			upperTrapezoidNode->trapezoid->lowerVertexIndex = static_cast<int>(pointIndex);
+			upperTrapezoidNode->trapezoid->lowerPointIndex = static_cast<int>(pointIndex);
 			upperTrapezoidNode->trapezoid->lower1 = lowerTrapezoidNode->trapezoid;
 			upperTrapezoidNode->trapezoid->lower2 = nullptr;
 			upperTrapezoidNode->trapezoid->node = upperTrapezoidNode;
 
-			node->type = TrapezoidationTreeNode::Type::VERTEX;
+			node->type = TrapezoidationTreeNode::Type::POINT;
 			node->elementIndex = pointIndex;
 			node->left = lowerTrapezoidNode;
 			node->right = upperTrapezoidNode;
@@ -304,7 +305,7 @@ static void ThreadSegment(
 		{
 			// Upward cusp. Update necessary only if this segment creates the cusp from the right side.
 			if (ul1->rightSegmentIndex >= 0 &&
-				WhichSegmentSide(state.pointCoords[segment.lowerPointIndex], state.segments[ul1->rightSegmentIndex]) == SegmentSide::Right)
+				WhichSegmentSide(state.pointCoords[segment.lowerPointIndex], state.segments[ul1->rightSegmentIndex]) == Side::Right)
 			{
 				leftTrap->upper1 = nullptr;
 				rightTrap->upper1 = u1;
@@ -328,10 +329,10 @@ static void ThreadSegment(
 
 	if (l1 != nullptr && l2 != nullptr)
 	{
-		assert(l1->upperVertexIndex == l2->upperVertexIndex);
+		assert(l1->upperPointIndex == l2->upperPointIndex);
 
 		// Two trapezoids below.
-		if (segment.lowerPointIndex == l1->upperVertexIndex)
+		if (segment.lowerPointIndex == l1->upperPointIndex)
 		{
 			// This segment connects with the segment below.
 			nextTrapNode = l1->node;	// Either one will do; segment threading ends here.
@@ -342,9 +343,9 @@ static void ThreadSegment(
 		else
 		{
 			// Find out which trapezoid below is intersected by this segment.
-			auto side = WhichSegmentSide(state.pointCoords[l1->upperVertexIndex], segment);
+			auto side = WhichSegmentSide(state.pointCoords[l1->upperPointIndex], segment);
 
-			if (side == SegmentSide::Left)
+			if (side == Side::Left)
 			{
 				nextTrapNode = l2->node;
 				rightTrap->lower1 = l2;
@@ -372,12 +373,11 @@ static void ThreadSegment(
 		{
 			// The trapezoid below has two upper trapezoids.
 
-			if (segment.lowerPointIndex == l1->upperVertexIndex)
+			if (segment.lowerPointIndex == l1->upperPointIndex)
 			{
 				// Downward cusp. Update necessary only if this segment is creating the cusp from the right side.
 				if (lu1->rightSegmentIndex >= 0 &&
-					WhichSegmentSide(state.pointCoords[segment.upperPointIndex], state.segments[lu1->rightSegmentIndex]) == SegmentSide::Right)
-			//	if (leftTrap == lu2)
+					WhichSegmentSide(state.pointCoords[segment.upperPointIndex], state.segments[lu1->rightSegmentIndex]) == Side::Right)
 				{
 					leftTrap->lower1 = nullptr;
 					rightTrap->lower1 = l1;
@@ -439,8 +439,8 @@ static void ThreadSegment(
 	rightTrapNode->trapezoid->node = rightTrapNode;
 	rightTrapNode->trapezoid->leftSegmentIndex = segmentIndex;
 	rightTrapNode->trapezoid->rightSegmentIndex = rightSegIndex;
-	rightTrapNode->trapezoid->upperVertexIndex = leftTrap->upperVertexIndex;
-	rightTrapNode->trapezoid->lowerVertexIndex = leftTrap->lowerVertexIndex;
+	rightTrapNode->trapezoid->upperPointIndex = leftTrap->upperPointIndex;
+	rightTrapNode->trapezoid->lowerPointIndex = leftTrap->lowerPointIndex;
 
 	// Change current trapezoid node into a segment node.
 	trapNode->type = TrapezoidationTreeNode::Type::SEGMENT;
@@ -457,7 +457,7 @@ static TrapezoidationTreeNode* GetFirstTrapezoidForNewSegment(TriangulationState
 	{
 		switch (node->type)
 		{
-		case TrapezoidationTreeNode::Type::VERTEX:
+		case TrapezoidationTreeNode::Type::POINT:
 		{
 			// We found the upper vertex node, now find the first trapezoid node towards the lower point.
 			if (segment.upperPointIndex == node->elementIndex)
@@ -469,7 +469,7 @@ static TrapezoidationTreeNode* GetFirstTrapezoidForNewSegment(TriangulationState
 				{
 					switch (node->type)
 					{
-					case TrapezoidationTreeNode::Type::VERTEX:
+					case TrapezoidationTreeNode::Type::POINT:
 					{
 						// Since this vertex is below upper vertex, the trapezoid must be above it.
 						node = node->right;
@@ -503,7 +503,7 @@ static TrapezoidationTreeNode* GetFirstTrapezoidForNewSegment(TriangulationState
 						}
 
 						auto side = WhichSegmentSide(state.pointCoords[ptIndex], state.segments[node->elementIndex]);
-						node = (side == SegmentSide::Left) ? node->left : node->right;
+						node = (side == Side::Left) ? node->left : node->right;
 						break;
 					}
 					}
@@ -521,7 +521,7 @@ static TrapezoidationTreeNode* GetFirstTrapezoidForNewSegment(TriangulationState
 		case TrapezoidationTreeNode::Type::SEGMENT:
 		{
 			auto side = WhichSegmentSide(state.pointCoords[segment.upperPointIndex], state.segments[node->elementIndex]);
-			node = (side == SegmentSide::Left) ? node->left : node->right;
+			node = (side == Side::Left) ? node->left : node->right;
 			break;
 		}
 
@@ -552,7 +552,7 @@ static TrapezoidationTreeNode* MergeTrapezoids(TriangulationState& state, Trapez
 
 		prevTrap->lower1 = l1;
 		prevTrap->lower2 = l2;
-		prevTrap->lowerVertexIndex = curTrap->lowerVertexIndex;
+		prevTrap->lowerPointIndex = curTrap->lowerPointIndex;
 
 		if (l1 != nullptr)
 		{
@@ -616,7 +616,7 @@ static void AddSegment(TriangulationState& state, size_t segmentIndex)
 
 	assert(trapezoidNode != nullptr);
 
-	while (trapezoidNode->trapezoid->upperVertexIndex != segment.lowerPointIndex)
+	while (trapezoidNode->trapezoid->upperPointIndex != segment.lowerPointIndex)
 	{
 		TrapezoidationTreeNode* leftTrapezoidNode;
 		TrapezoidationTreeNode* rightTrapezoidNode;
@@ -639,7 +639,7 @@ static void AddSegment(TriangulationState& state, size_t segmentIndex)
 
 static void DetermineInsideTrapezoids(TriangulationState& state)
 {
-	auto countCrossings = [](TriangulationState& state, int segIndex, int& counter) {
+	auto countCrossings = [&state](int segIndex, int& counter) {
 		auto& segment = state.segments[segIndex];
 		if (segIndex == static_cast<int>(state.segments.size()) - 1)
 		{
@@ -659,8 +659,8 @@ static void DetermineInsideTrapezoids(TriangulationState& state)
 
 	for (auto trap : state.trapezoids)
 	{
-		if (trap->lowerVertexIndex < 0 ||
-			trap->upperVertexIndex < 0 ||
+		if (trap->lowerPointIndex < 0 ||
+			trap->upperPointIndex < 0 ||
 			trap->leftSegmentIndex < 0 ||
 			trap->rightSegmentIndex < 0)
 		{
@@ -668,7 +668,7 @@ static void DetermineInsideTrapezoids(TriangulationState& state)
 		}
 
 		auto node = trap->node;
-		SegmentSide direction = SegmentSide::Left;
+		Side direction = Side::Left;
 		int segmentCrossCounter = 0;
 
 		// Traverse upwards until the left or right segment of this trapezoid is encountered.
@@ -687,22 +687,22 @@ static void DetermineInsideTrapezoids(TriangulationState& state)
 			{
 				if (node->elementIndex == trap->leftSegmentIndex)
 				{
-					countCrossings(state, trap->leftSegmentIndex, segmentCrossCounter);
-					direction = SegmentSide::Left;
+					countCrossings(trap->leftSegmentIndex, segmentCrossCounter);
+					direction = Side::Left;
 					break;
 				}
 				else if (node->elementIndex == trap->rightSegmentIndex)
 				{
-					countCrossings(state, trap->rightSegmentIndex, segmentCrossCounter);
-					direction = SegmentSide::Right;
+					countCrossings(trap->rightSegmentIndex, segmentCrossCounter);
+					direction = Side::Right;
 					break;
 				}
 			}
 		}
 
-		int vertexCount = 0;
+		int pointCount = 0;
 		bool finished = false;
-		node = (direction == SegmentSide::Left) ? node->left : node->right;
+		node = (direction == Side::Left) ? node->left : node->right;
 
 		// From the segment node, traverse the tree downwards to left or right,
 		// depending on direction that was determined, until a trapezoid node
@@ -718,30 +718,30 @@ static void DetermineInsideTrapezoids(TriangulationState& state)
 
 			switch (node->type)
 			{
-			case TrapezoidationTreeNode::Type::VERTEX:
+			case TrapezoidationTreeNode::Type::POINT:
 			{
-				vertexCount++;
-				node = (vertexCount % 2 == 1) ? node->left : node->right;
+				pointCount++;
+				node = (pointCount % 2 == 1) ? node->left : node->right;
 				break;
 			}
 
 			case TrapezoidationTreeNode::Type::SEGMENT:
 			{
-				node = (direction == SegmentSide::Left) ? node->right : node->left;
+				node = (direction == Side::Left) ? node->right : node->left;
 				break;
 			}
 
 			case TrapezoidationTreeNode::Type::TRAPEZOID:
 			{
 				// We have reached an adjacent trapezoid.
-				vertexCount = 0;
+				pointCount = 0;
 				auto adjTrap = node->trapezoid;
 
 				if (adjTrap->leftSegmentIndex >= 0 && adjTrap->rightSegmentIndex >= 0)
 				{
 					// This trapezoid has both left and right segments. Traverse upwards until the segment that matches
 					// current direction is reached.
-					int segmentIndex = (direction == SegmentSide::Left) ? adjTrap->leftSegmentIndex : adjTrap->rightSegmentIndex;
+					int segmentIndex = (direction == Side::Left) ? adjTrap->leftSegmentIndex : adjTrap->rightSegmentIndex;
 
 					while (true)
 					{
@@ -756,12 +756,12 @@ static void DetermineInsideTrapezoids(TriangulationState& state)
 						if (node->type == TrapezoidationTreeNode::Type::SEGMENT &&
 							node->elementIndex == segmentIndex)
 						{
-							countCrossings(state, segmentIndex, segmentCrossCounter);
+							countCrossings(segmentIndex, segmentCrossCounter);
 							break;
 						}
 					}
 
-					node = (direction == SegmentSide::Left) ? node->left : node->right;
+					node = (direction == Side::Left) ? node->left : node->right;
 				}
 				else
 				{
@@ -784,7 +784,8 @@ static void BuildTrapezoidTree(TriangulationState& state)
 	std::vector<size_t> segmentIndices;
 	segmentIndices.resize(state.pointCoords.size());
 	std::iota(segmentIndices.begin(), segmentIndices.end(), 0);
-//	std::shuffle(segmentIndices.begin(), segmentIndices.end(), state.rndEng);
+	if (state.randomizeSegments)
+		std::shuffle(segmentIndices.begin(), segmentIndices.end(), state.rndEng);
 
 	// Add each segment to the tree.
 	for (size_t segInd : segmentIndices)
@@ -797,16 +798,119 @@ static void BuildTrapezoidTree(TriangulationState& state)
 	DetermineInsideTrapezoids(state);
 }
 
-static void BuildYMonotoneChains()
+static void TraverseTrapezoids(TriangulationState& state, Trapezoid* trap, Side monChainSide)
 {
+	std::vector<int> monChainVerts;
 
+	auto shouldSplit = [n = static_cast<int>(state.points.size())](Trapezoid* trap) -> bool
+	{
+		// The trapezoid should be split if a diagonal can be drawn between upper and lower points.
+		// In other words, it can be split when those points are not consecutive.
+
+		int lpi = trap->lowerPointIndex;
+		int upi = trap->upperPointIndex;
+
+		return (
+			trap->visited == false &&
+			((lpi + 1) % n) != upi &&
+			((upi + 1) % n) != lpi
+		);
+	};
+
+	// Search down until a the lowest trapezoid of the monotone polygon is found,
+	// that is the one who's lower point is the same as the lower point of the single segment.
+	int singleSegInd = (monChainSide == Side::Left) ? trap->rightSegmentIndex : trap->leftSegmentIndex;
+	auto singleSeg = &state.segments[singleSegInd];
+
+	while (trap->lowerPointIndex != singleSeg->lowerPointIndex)
+	{
+		if (trap->lower2 != nullptr && monChainSide == Side::Left)
+			trap = trap->lower2;
+		else
+			trap = trap->lower1;
+	}
+
+	// Follow the monotone chain upward and add it's vertices to the list.
+	monChainVerts.push_back(trap->lowerPointIndex);
+	bool done = false;
+
+	while (!done)
+	{
+		done = (trap->upperPointIndex == singleSeg->upperPointIndex);
+		monChainVerts.push_back(trap->upperPointIndex);
+		
+		if (monChainSide == Side::Left)
+		{
+			if (trap->upper2 != nullptr)
+			{
+				if (!trap->visited)
+				{
+					trap->visited = true;
+					TraverseTrapezoids(state, trap, Side::Right);
+				}
+				trap = trap->upper2;
+			}
+			else
+			{
+				if (shouldSplit(trap))
+				{
+					trap->visited = true;
+					TraverseTrapezoids(state, trap, Side::Right);
+				}
+				trap = trap->upper1;
+			}
+		}
+		else
+		{
+			if (trap->upper2 != nullptr)
+			{
+				if (!trap->visited)
+				{
+					trap->visited = true;
+					TraverseTrapezoids(state, trap, Side::Left);
+				}
+			}
+			else
+			{
+				if (shouldSplit(trap))
+				{
+					trap->visited = true;
+					TraverseTrapezoids(state, trap, Side::Left);
+				}
+			}
+
+			trap = trap->upper1;
+		}
+	}
+
+	assert(monChainVerts.size() > 2);
+	state.monChains.push_back(monChainVerts);
 }
 
-static void DoEarClipping()
+static void BuildMonotonePolysAndTriangulate(TriangulationState& state)
 {
+	Trapezoid* startTrap = nullptr;
+	for (auto trap : state.trapezoids)
+	{
+		if (trap->status == Trapezoid::Status::Inside &&
+			trap->leftSegmentIndex >= 0 && trap->rightSegmentIndex >= 0 &&
+			trap->lower1 == nullptr && trap->lower2 == nullptr)
+		{
+			startTrap = trap;
+			break;
+		}
+	}
 
+	assert(startTrap != nullptr);
+	if (startTrap == nullptr)
+		return;
+
+	state.outIndices.resize((state.points.size() - 2) * 3);
+
+	auto& lseg = state.segments[startTrap->leftSegmentIndex];
+	Side side = (lseg.upperPointIndex == startTrap->upperPointIndex) ? Side::Left : Side::Right;
+	TraverseTrapezoids(state, startTrap, side);
 }
-
 
 bool TriangulatePolygon_Seidel(TriangulationState& state)
 {
@@ -825,8 +929,7 @@ bool TriangulatePolygon_Seidel(TriangulationState& state)
 	Trapezoid::nextNumber = 1;
 
 	BuildTrapezoidTree(state);
-	BuildYMonotoneChains();
-	DoEarClipping();
+	BuildMonotonePolysAndTriangulate(state);
 
 	return true;
 }
