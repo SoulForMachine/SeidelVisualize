@@ -75,6 +75,7 @@
     <addaction name="separator"/>
     <addaction name="actionViewMonotoneChains"/>
     <addaction name="actionViewTriangles"/>
+    <addaction name="actionViewNone"/>
    </widget>
    <addaction name="menuCommands"/>
    <addaction name="menuTrapezoidation"/>
@@ -180,6 +181,17 @@
    </property>
    <property name="shortcut">
     <string>F4</string>
+   </property>
+  </action>
+  <action name="actionViewNone">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>None</string>
+   </property>
+   <property name="shortcut">
+    <string>F5</string>
    </property>
   </action>
  </widget>

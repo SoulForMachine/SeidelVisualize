@@ -106,6 +106,7 @@ struct TriangulationState
 	std::vector<Trapezoid*> trapezoids;
 	std::vector<unsigned short> outIndices;
 	std::vector<std::vector<int>> monChains;
+	int curOutIndex;
 	bool randomizeSegments;
 
 	size_t dbgSteps = 0;

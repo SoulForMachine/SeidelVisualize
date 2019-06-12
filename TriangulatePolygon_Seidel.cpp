@@ -56,6 +56,7 @@ TriangulationState::TriangulationState(const math3d::vec2f* pts, size_t n) :
 	trapezoidPool { 3 * n + 1 },
 	treeNodePool { n + (5 * n) + (3 * n + 1) },	//! better calculation needed
 	treeRootNode { nullptr },
+	curOutIndex { 0 },
 	randomizeSegments { true }
 {
 	points.resize(n);
@@ -791,11 +792,52 @@ static void BuildTrapezoidTree(TriangulationState& state)
 	for (size_t segInd : segmentIndices)
 	{
 		if (state.dbgSteps == 0)
-			break;
+			return;
 		AddSegment(state, segInd);
 	}
 
 	DetermineInsideTrapezoids(state);
+}
+
+static void Triangulate(TriangulationState& state, std::vector<int>& monChain, Side monChainSide)
+{
+	size_t ib = 1;
+	while (monChain.size() > 3)
+	{
+		size_t ia = (monChainSide == Side::Left) ? ib + 1 : ib - 1;
+		size_t ic = (monChainSide == Side::Left) ? ib - 1 : ib + 1;
+		auto& ptA = state.pointCoords[monChain[ia]];
+		auto& ptB = state.pointCoords[monChain[ib]];
+		auto& ptC = state.pointCoords[monChain[ic]];
+
+		if (math3d::cross(math3d::vec3f { ptC - ptB, 0.0f }, math3d::vec3f { ptA - ptB, 0.0f }).z > 0)
+		{
+			// Convex vertex B.
+			state.outIndices[state.curOutIndex++] = monChain[ia];
+			state.outIndices[state.curOutIndex++] = monChain[ib];
+			state.outIndices[state.curOutIndex++] = monChain[ic];
+
+			monChain.erase(monChain.begin() + ib);
+		}
+		else
+		{
+			if (++ib == monChain.size() - 1)
+				ib = 1;
+		}
+	}
+
+	if (monChainSide == Side::Left)
+	{
+		state.outIndices[state.curOutIndex++] = monChain[2];
+		state.outIndices[state.curOutIndex++] = monChain[1];
+		state.outIndices[state.curOutIndex++] = monChain[0];
+	}
+	else
+	{
+		state.outIndices[state.curOutIndex++] = monChain[0];
+		state.outIndices[state.curOutIndex++] = monChain[1];
+		state.outIndices[state.curOutIndex++] = monChain[2];
+	}
 }
 
 static void TraverseTrapezoids(TriangulationState& state, Trapezoid* trap, Side monChainSide)
@@ -885,6 +927,7 @@ static void TraverseTrapezoids(TriangulationState& state, Trapezoid* trap, Side 
 
 	assert(monChainVerts.size() > 2);
 	state.monChains.push_back(monChainVerts);
+	Triangulate(state, monChainVerts, monChainSide);
 }
 
 static void BuildMonotonePolysAndTriangulate(TriangulationState& state)
@@ -893,7 +936,6 @@ static void BuildMonotonePolysAndTriangulate(TriangulationState& state)
 	for (auto trap : state.trapezoids)
 	{
 		if (trap->status == Trapezoid::Status::Inside &&
-			trap->leftSegmentIndex >= 0 && trap->rightSegmentIndex >= 0 &&
 			trap->lower1 == nullptr && trap->lower2 == nullptr)
 		{
 			startTrap = trap;
@@ -901,7 +943,6 @@ static void BuildMonotonePolysAndTriangulate(TriangulationState& state)
 		}
 	}
 
-	assert(startTrap != nullptr);
 	if (startTrap == nullptr)
 		return;
 
@@ -929,6 +970,10 @@ bool TriangulatePolygon_Seidel(TriangulationState& state)
 	Trapezoid::nextNumber = 1;
 
 	BuildTrapezoidTree(state);
+
+	if (state.dbgSteps == 0)
+		return true;
+
 	BuildMonotonePolysAndTriangulate(state);
 
 	return true;

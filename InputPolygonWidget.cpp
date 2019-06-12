@@ -110,18 +110,15 @@ void InputPolygonWidget::paintEvent(QPaintEvent* event)
 	}
 
 	if (_editing)
-		scrPts.push_back({ _cursorPos.x, _cursorPos.y });
-	else
-		scrPts.push_back(scrPts.front());
-
-	painter.drawPolyline(scrPts.data(), scrPts.size());
-
-	if (_editing)
 	{
+		scrPts.push_back({ _cursorPos.x, _cursorPos.y });
+		painter.drawPolyline(scrPts.data(), scrPts.size());
 		painter.drawEllipse({ _cursorPos.x, _cursorPos.y }, 5, 5);
 	}
 	else
 	{
+		scrPts.push_back(scrPts.front());
+
 		// Draw trapezoid horizontal lines and numbers.
 		if (_viewTraps)
 			DrawTrapezoids(painter);
@@ -130,9 +127,15 @@ void InputPolygonWidget::paintEvent(QPaintEvent* event)
 		{
 		case ResultViewType::Triangles:
 			DrawTriangles(painter);
+
+			painter.setPen(QPen { Qt::GlobalColor::darkBlue });
+			painter.drawPolyline(scrPts.data(), scrPts.size());
 			break;
 
 		case ResultViewType::MonotoneChains:
+			painter.setPen(QPen { Qt::GlobalColor::darkBlue });
+			painter.drawPolyline(scrPts.data(), scrPts.size());
+			
 			DrawMonotoneChains(painter);
 			break;
 		}
@@ -356,6 +359,23 @@ void InputPolygonWidget::DrawTrapezoids(QPainter& painter)
 
 void InputPolygonWidget::DrawTriangles(QPainter& painter)
 {
+	if (_state == nullptr)
+		return;
+
+	painter.setPen(QPen { Qt::cyan });
+
+	for (size_t i = 0; i < _state->outIndices.size(); i += 3)
+	{
+		std::vector<QPoint> points;
+
+		for (size_t j = 0; j < 4; ++j)
+		{
+			auto scrPt = WorldToScreen(_state->pointCoords[_state->outIndices[i + j % 3]]);
+			points.push_back(QPoint { scrPt.x, scrPt.y });
+		}
+
+		painter.drawPolyline(points.data(), static_cast<int>(points.size()));
+	}
 }
 
 void InputPolygonWidget::DrawMonotoneChains(QPainter& painter)

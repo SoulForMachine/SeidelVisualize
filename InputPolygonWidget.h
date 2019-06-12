@@ -30,7 +30,8 @@ public:
 	enum class ResultViewType
 	{
 		Triangles,
-		MonotoneChains
+		MonotoneChains,
+		None
 	};
 
 	InputPolygonWidget(QWidget *parent);

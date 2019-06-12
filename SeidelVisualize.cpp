@@ -16,10 +16,22 @@ SeidelVisualize::SeidelVisualize(QWidget *parent)
 	auto actionGroupResults = new QActionGroup { this };
 	actionGroupResults->addAction(ui.actionViewMonotoneChains);
 	actionGroupResults->addAction(ui.actionViewTriangles);
-	if (ui.widgetInputPolygon->GetResultViewType() == InputPolygonWidget::ResultViewType::Triangles)
+	actionGroupResults->addAction(ui.actionViewNone);
+	
+	switch (ui.widgetInputPolygon->GetResultViewType())
+	{
+	case InputPolygonWidget::ResultViewType::Triangles:
 		ui.actionViewTriangles->setChecked(true);
-	else
+		break;
+
+	case InputPolygonWidget::ResultViewType::MonotoneChains:
 		ui.actionViewMonotoneChains->setChecked(true);
+		break;
+
+	case InputPolygonWidget::ResultViewType::None:
+		ui.actionViewNone->setChecked(true);
+		break;
+	}
 
 	ui.actionViewTrapezoids->setChecked(ui.widgetInputPolygon->GetViewTrapezoids());
 
@@ -108,6 +120,7 @@ void SeidelVisualize::OnActionReset()
 	ui.widgetTrapTree->SetTreeState(nullptr);
 	delete _state;
 	_state = nullptr;
+	_dbgSteps = std::numeric_limits<size_t>::max();
 }
 
 void SeidelVisualize::OnActionResetView()
@@ -119,10 +132,10 @@ void SeidelVisualize::OnActionResetView()
 void SeidelVisualize::OnActionTrapToStart()
 {
 	_dbgSteps = 0;
-	const auto& points = ui.widgetInputPolygon->GetPoints();
 
-	if (points.size() >= 3)
+	if (!ui.widgetInputPolygon->IsEditing())
 	{
+		const auto& points = ui.widgetInputPolygon->GetPoints();
 		TriangulateAndDisplay(points);
 	}
 }
@@ -130,35 +143,37 @@ void SeidelVisualize::OnActionTrapToStart()
 void SeidelVisualize::OnActionTrapToEnd()
 {
 	_dbgSteps = std::numeric_limits<size_t>::max();
-	const auto& points = ui.widgetInputPolygon->GetPoints();
 
-	if (points.size() >= 3)
+	if (!ui.widgetInputPolygon->IsEditing())
 	{
+		const auto& points = ui.widgetInputPolygon->GetPoints();
 		TriangulateAndDisplay(points);
 	}
 }
 
 void SeidelVisualize::OnActionTrapNextStep()
 {
-	_dbgSteps += 1;
-	const auto& points = ui.widgetInputPolygon->GetPoints();
-
-	if (points.size() >= 3)
+	if (!ui.widgetInputPolygon->IsEditing())
 	{
-		TriangulateAndDisplay(points);
+		if (_dbgSteps < std::numeric_limits<size_t>::max())
+		{
+			_dbgSteps += 1;
+			const auto& points = ui.widgetInputPolygon->GetPoints();
+			TriangulateAndDisplay(points);
+		}
 	}
 }
 
 void SeidelVisualize::OnActionTrapPrevStep()
 {
-	if (_dbgSteps > 0)
-		_dbgSteps -= 1;
-
-	const auto& points = ui.widgetInputPolygon->GetPoints();
-
-	if (points.size() >= 3)
+	if (!ui.widgetInputPolygon->IsEditing())
 	{
-		TriangulateAndDisplay(points);
+		if (_dbgSteps > 0)
+		{
+			_dbgSteps -= 1;
+			const auto& points = ui.widgetInputPolygon->GetPoints();
+			TriangulateAndDisplay(points);
+		}
 	}
 }
 
@@ -169,9 +184,12 @@ void SeidelVisualize::OnActionViewTrapezoids()
 
 void SeidelVisualize::OnActionViewResult(QAction* action)
 {
-	ui.widgetInputPolygon->SetResultViewType(
-		(action == ui.actionViewTriangles) ? InputPolygonWidget::ResultViewType::Triangles : InputPolygonWidget::ResultViewType::MonotoneChains
-	);
+	if (action == ui.actionViewTriangles)
+		ui.widgetInputPolygon->SetResultViewType(InputPolygonWidget::ResultViewType::Triangles);
+	else if (action == ui.actionViewMonotoneChains)
+		ui.widgetInputPolygon->SetResultViewType(InputPolygonWidget::ResultViewType::MonotoneChains);
+	else if (action == ui.actionViewNone)
+		ui.widgetInputPolygon->SetResultViewType(InputPolygonWidget::ResultViewType::None);
 }
 
 void SeidelVisualize::TriangulateAndDisplay(const std::vector<math3d::vec2f>& points)
@@ -182,6 +200,8 @@ void SeidelVisualize::TriangulateAndDisplay(const std::vector<math3d::vec2f>& po
 	_state->dbgSteps = _dbgSteps;
 
 	Geometry::TriangulatePolygon_Seidel(*_state);
+
+	_dbgSteps -= _state->dbgSteps;
 
 	ui.widgetTrapTree->SetTreeState(_state);
 	ui.widgetInputPolygon->SetTreeState(_state);
@@ -228,6 +248,18 @@ void SeidelVisualize::DumpMonChains(QTextStream& outStream)
 	}
 }
 
+void SeidelVisualize::DumpTris(QTextStream& outStream)
+{
+	if (_state == nullptr)
+		return;
+
+	for (size_t i = 0; i < _state->outIndices.size(); ++i)
+	{
+		outStream << _state->outIndices[i];
+		outStream << ((i % 3 == 2) ? "\n" : "  ");
+	}
+}
+
 void SeidelVisualize::DumpLog()
 {
 	if (_state == nullptr)
@@ -252,6 +284,17 @@ void SeidelVisualize::DumpLog()
 			QTextStream outStream { &file };
 
 			DumpMonChains(outStream);
+		}
+	}
+
+	{
+		QString path = QApplication::applicationDirPath() + "\\tris-dump.txt";
+		QFile file { path };
+		if (file.open(QIODevice::WriteOnly | QIODevice::Text))
+		{
+			QTextStream outStream { &file };
+
+			DumpTris(outStream);
 		}
 	}
 }
