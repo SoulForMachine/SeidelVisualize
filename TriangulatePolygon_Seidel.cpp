@@ -57,7 +57,8 @@ TriangulationState::TriangulationState(const math3d::vec2f* pts, size_t n) :
 	treeNodePool { n + (5 * n) + (3 * n + 1) },	//! better calculation needed
 	treeRootNode { nullptr },
 	curOutIndex { 0 },
-	randomizeSegments { true }
+	randomizeSegments { true },
+	triangleWinding { Winding::CCW }
 {
 	points.resize(n);
 
@@ -802,10 +803,13 @@ static void BuildTrapezoidTree(TriangulationState& state)
 static void Triangulate(TriangulationState& state, std::vector<int>& monChain, Side monChainSide)
 {
 	size_t ib = 1;
+	size_t prevOffs = (monChainSide == Side::Left) ? 1 : -1;
+	size_t nextOffs = (monChainSide == Side::Left) ? -1 : 1;
+
 	while (monChain.size() > 3)
 	{
-		size_t ia = (monChainSide == Side::Left) ? ib + 1 : ib - 1;
-		size_t ic = (monChainSide == Side::Left) ? ib - 1 : ib + 1;
+		size_t ia = ib + prevOffs;
+		size_t ic = ib + nextOffs;
 		auto& ptA = state.pointCoords[monChain[ia]];
 		auto& ptB = state.pointCoords[monChain[ib]];
 		auto& ptC = state.pointCoords[monChain[ic]];
@@ -813,6 +817,10 @@ static void Triangulate(TriangulationState& state, std::vector<int>& monChain, S
 		if (math3d::cross(math3d::vec3f { ptC - ptB, 0.0f }, math3d::vec3f { ptA - ptB, 0.0f }).z > 0)
 		{
 			// Convex vertex B.
+			
+			if (state.triangleWinding == Winding::CW)
+				std::swap(ia, ic);
+
 			state.outIndices[state.curOutIndex++] = monChain[ia];
 			state.outIndices[state.curOutIndex++] = monChain[ib];
 			state.outIndices[state.curOutIndex++] = monChain[ic];
@@ -828,17 +836,18 @@ static void Triangulate(TriangulationState& state, std::vector<int>& monChain, S
 			ib = 1;
 	}
 
-	if (monChainSide == Side::Left)
+	if ((monChainSide == Side::Left && state.triangleWinding == Winding::CW) ||
+		(monChainSide == Side::Right && state.triangleWinding == Winding::CCW))
 	{
-		state.outIndices[state.curOutIndex++] = monChain[2];
-		state.outIndices[state.curOutIndex++] = monChain[1];
 		state.outIndices[state.curOutIndex++] = monChain[0];
+		state.outIndices[state.curOutIndex++] = monChain[1];
+		state.outIndices[state.curOutIndex++] = monChain[2];
 	}
 	else
 	{
-		state.outIndices[state.curOutIndex++] = monChain[0];
-		state.outIndices[state.curOutIndex++] = monChain[1];
 		state.outIndices[state.curOutIndex++] = monChain[2];
+		state.outIndices[state.curOutIndex++] = monChain[1];
+		state.outIndices[state.curOutIndex++] = monChain[0];
 	}
 }
 

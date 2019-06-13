@@ -2,7 +2,6 @@
 #include <QFileDialog>
 #include <QFile>
 #include <QTextStream>
-#include "TriangulatePolygon_Seidel.h"
 
 
 SeidelVisualize::SeidelVisualize(QWidget *parent)
@@ -33,7 +32,23 @@ SeidelVisualize::SeidelVisualize(QWidget *parent)
 		break;
 	}
 
+	auto actionGroupTrisWind = new QActionGroup { this };
+	actionGroupTrisWind->addAction(ui.actionOptionsTrisWindCCW);
+	actionGroupTrisWind->addAction(ui.actionOptionsTrisWindCW);
+
+	switch (_triangleWinding)
+	{
+	case Geometry::Winding::CCW:
+		ui.actionOptionsTrisWindCCW->setChecked(true);
+		break;
+
+	case Geometry::Winding::CW:
+		ui.actionOptionsTrisWindCW->setChecked(true);
+		break;
+	}
+
 	ui.actionViewTrapezoids->setChecked(ui.widgetInputPolygon->GetViewTrapezoids());
+	ui.actionOptionsRandomizeSegments->setChecked(_randSegments);
 
 	connect(ui.actionLoad, &QAction::triggered, this, &SeidelVisualize::OnActionLoad);
 	connect(ui.actionSave, &QAction::triggered, this, &SeidelVisualize::OnActionSave);
@@ -46,7 +61,9 @@ SeidelVisualize::SeidelVisualize(QWidget *parent)
 	connect(ui.actionTrapPreviousStep, &QAction::triggered, this, &SeidelVisualize::OnActionTrapPrevStep);
 
 	connect(ui.actionViewTrapezoids, &QAction::triggered, this, &SeidelVisualize::OnActionViewTrapezoids);
+	connect(ui.actionOptionsRandomizeSegments, &QAction::triggered, this, &SeidelVisualize::OnActionOptionsRandSeg);
 	connect(actionGroupResults, &QActionGroup::triggered, this, &SeidelVisualize::OnActionViewResult);
+	connect(actionGroupTrisWind, &QActionGroup::triggered, this, &SeidelVisualize::OnActionOptionsTrisWinding);
 }
 
 SeidelVisualize::~SeidelVisualize()
@@ -56,9 +73,8 @@ SeidelVisualize::~SeidelVisualize()
 
 void SeidelVisualize::OnEditFinished()
 {
-	const auto& points = ui.widgetInputPolygon->GetPoints();
 	_dbgSteps = std::numeric_limits<size_t>::max();
-	TriangulateAndDisplay(points);
+	TriangulateAndDisplay();
 }
 
 void SeidelVisualize::OnActionLoad()
@@ -89,7 +105,7 @@ void SeidelVisualize::OnActionLoad()
 	{
 		ui.widgetInputPolygon->SetPolygon(points);
 		_dbgSteps = std::numeric_limits<size_t>::max();
-		TriangulateAndDisplay(points);
+		TriangulateAndDisplay();
 	}
 }
 
@@ -133,48 +149,42 @@ void SeidelVisualize::OnActionResetView()
 
 void SeidelVisualize::OnActionTrapToStart()
 {
-	_dbgSteps = 0;
-
-	if (!ui.widgetInputPolygon->IsEditing())
+	if (!_randSegments)
 	{
-		const auto& points = ui.widgetInputPolygon->GetPoints();
-		TriangulateAndDisplay(points);
+		_dbgSteps = 0;
+		TriangulateAndDisplay();
 	}
 }
 
 void SeidelVisualize::OnActionTrapToEnd()
 {
-	_dbgSteps = std::numeric_limits<size_t>::max();
-
-	if (!ui.widgetInputPolygon->IsEditing())
+	if (!_randSegments)
 	{
-		const auto& points = ui.widgetInputPolygon->GetPoints();
-		TriangulateAndDisplay(points);
+		_dbgSteps = std::numeric_limits<size_t>::max();
+		TriangulateAndDisplay();
 	}
 }
 
 void SeidelVisualize::OnActionTrapNextStep()
 {
-	if (!ui.widgetInputPolygon->IsEditing())
+	if (!ui.widgetInputPolygon->IsEditing() && !_randSegments)
 	{
 		if (_dbgSteps < std::numeric_limits<size_t>::max())
 		{
 			_dbgSteps += 1;
-			const auto& points = ui.widgetInputPolygon->GetPoints();
-			TriangulateAndDisplay(points);
+			TriangulateAndDisplay();
 		}
 	}
 }
 
 void SeidelVisualize::OnActionTrapPrevStep()
 {
-	if (!ui.widgetInputPolygon->IsEditing())
+	if (!ui.widgetInputPolygon->IsEditing() && !_randSegments)
 	{
 		if (_dbgSteps > 0)
 		{
 			_dbgSteps -= 1;
-			const auto& points = ui.widgetInputPolygon->GetPoints();
-			TriangulateAndDisplay(points);
+			TriangulateAndDisplay();
 		}
 	}
 }
@@ -194,12 +204,37 @@ void SeidelVisualize::OnActionViewResult(QAction* action)
 		ui.widgetInputPolygon->SetResultViewType(InputPolygonWidget::ResultViewType::None);
 }
 
-void SeidelVisualize::TriangulateAndDisplay(const std::vector<math3d::vec2f>& points)
+void SeidelVisualize::OnActionOptionsRandSeg()
 {
+	_randSegments = !_randSegments;
+	_dbgSteps = std::numeric_limits<size_t>::max();
+	TriangulateAndDisplay();
+}
+
+void SeidelVisualize::OnActionOptionsTrisWinding(QAction* action)
+{
+	if (action == ui.actionOptionsTrisWindCCW)
+		_triangleWinding = Geometry::Winding::CCW;
+	else if (action == ui.actionOptionsTrisWindCW)
+		_triangleWinding = Geometry::Winding::CW;
+
+	_dbgSteps = std::numeric_limits<size_t>::max();
+	TriangulateAndDisplay();
+}
+
+void SeidelVisualize::TriangulateAndDisplay()
+{
+	if (ui.widgetInputPolygon->IsEditing())
+		return;
+
+	const auto& points = ui.widgetInputPolygon->GetPoints();
+
 	delete _state;
 	_state = new Geometry::TriangulationState { points.data(), points.size() };
 	_state->randomizeSegments = false;
 	_state->dbgSteps = _dbgSteps;
+	_state->triangleWinding = _triangleWinding;
+	_state->randomizeSegments = _randSegments;
 
 	Geometry::TriangulatePolygon_Seidel(*_state);
 

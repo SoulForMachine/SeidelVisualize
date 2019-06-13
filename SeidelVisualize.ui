@@ -77,9 +77,24 @@
     <addaction name="actionViewTriangles"/>
     <addaction name="actionViewNone"/>
    </widget>
+   <widget class="QMenu" name="menuOptions">
+    <property name="title">
+     <string>Options</string>
+    </property>
+    <widget class="QMenu" name="menuOptionsTriangleWinding">
+     <property name="title">
+      <string>Triangle Winding</string>
+     </property>
+     <addaction name="actionOptionsTrisWindCCW"/>
+     <addaction name="actionOptionsTrisWindCW"/>
+    </widget>
+    <addaction name="menuOptionsTriangleWinding"/>
+    <addaction name="actionOptionsRandomizeSegments"/>
+   </widget>
    <addaction name="menuCommands"/>
    <addaction name="menuTrapezoidation"/>
    <addaction name="menuView"/>
+   <addaction name="menuOptions"/>
   </widget>
   <action name="actionLoad">
    <property name="text">
@@ -192,6 +207,30 @@
    </property>
    <property name="shortcut">
     <string>F5</string>
+   </property>
+  </action>
+  <action name="actionOptionsRandomizeSegments">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Randomize Segments</string>
+   </property>
+  </action>
+  <action name="actionOptionsTrisWindCCW">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>CCW</string>
+   </property>
+  </action>
+  <action name="actionOptionsTrisWindCW">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>CW</string>
    </property>
   </action>
  </widget>

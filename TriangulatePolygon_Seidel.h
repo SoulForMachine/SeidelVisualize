@@ -92,6 +92,12 @@ struct TrapezoidationTreeNode
 };
 
 
+enum class Winding
+{
+	CW,
+	CCW,
+};
+
 struct TriangulationState
 {
 	TriangulationState(const math3d::vec2f* pts, size_t n);
@@ -108,6 +114,7 @@ struct TriangulationState
 	std::vector<std::vector<int>> monChains;
 	int curOutIndex;
 	bool randomizeSegments;
+	Winding triangleWinding;
 
 	size_t dbgSteps = 0;
 };

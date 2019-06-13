@@ -4,11 +4,7 @@
 #include <set>
 #include <QtWidgets/QMainWindow>
 #include "ui_SeidelVisualize.h"
-
-namespace Geometry
-{
-struct TriangulationState;
-}
+#include "TriangulatePolygon_Seidel.h"
 
 
 class SeidelVisualize : public QMainWindow, public InputPolygonWidgetListener
@@ -35,9 +31,11 @@ private slots:
 
 	void OnActionViewTrapezoids();
 	void OnActionViewResult(QAction* action);
+	void OnActionOptionsRandSeg();
+	void OnActionOptionsTrisWinding(QAction* action);
 
 private:
-	void TriangulateAndDisplay(const std::vector<math3d::vec2f>& points);
+	void TriangulateAndDisplay();
 	void DumpTree(QTextStream& outStream);
 	void DumpMonChains(QTextStream& outStream);
 	void DumpTris(QTextStream& outStream);
@@ -46,4 +44,6 @@ private:
 	Ui::SeidelVisualizeClass ui;
 	Geometry::TriangulationState* _state = nullptr;
 	size_t _dbgSteps = std::numeric_limits<size_t>::max();
+	Geometry::Winding _triangleWinding = Geometry::Winding::CCW;
+	bool _randSegments = false;
 };

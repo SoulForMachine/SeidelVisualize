@@ -82,5 +82,5 @@ private:
 	QFont _font { "Verdana", 10 };
 	math3d::vec4f _aabBox;
 	bool _viewTraps = true;
-	ResultViewType _resultViewType = ResultViewType::MonotoneChains;
+	ResultViewType _resultViewType = ResultViewType::Triangles;
 };
