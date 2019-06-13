@@ -57,6 +57,7 @@ SeidelVisualize::~SeidelVisualize()
 void SeidelVisualize::OnEditFinished()
 {
 	const auto& points = ui.widgetInputPolygon->GetPoints();
+	_dbgSteps = std::numeric_limits<size_t>::max();
 	TriangulateAndDisplay(points);
 }
 
@@ -87,6 +88,7 @@ void SeidelVisualize::OnActionLoad()
 	if (points.size() >= 3)
 	{
 		ui.widgetInputPolygon->SetPolygon(points);
+		_dbgSteps = std::numeric_limits<size_t>::max();
 		TriangulateAndDisplay(points);
 	}
 }

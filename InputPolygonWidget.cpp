@@ -138,6 +138,11 @@ void InputPolygonWidget::paintEvent(QPaintEvent* event)
 			
 			DrawMonotoneChains(painter);
 			break;
+
+		case ResultViewType::None:
+			painter.setPen(QPen { Qt::GlobalColor::darkBlue });
+			painter.drawPolyline(scrPts.data(), scrPts.size());
+			break;
 		}
 	}
 }

@@ -821,9 +821,11 @@ static void Triangulate(TriangulationState& state, std::vector<int>& monChain, S
 		}
 		else
 		{
-			if (++ib == monChain.size() - 1)
-				ib = 1;
+			++ib;
 		}
+
+		if (ib == monChain.size() - 1)
+			ib = 1;
 	}
 
 	if (monChainSide == Side::Left)
