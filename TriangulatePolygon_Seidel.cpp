@@ -49,51 +49,68 @@ static Side WhichSegmentSide(const math3d::vec2f& point, const Segment& segment)
 		return Side::Right;
 }
 
-TriangulationState::TriangulationState(const math3d::vec2f* pts, size_t n) :
-	pointCoords { pts, pts + n },
-	points { },
-	segments { },
-	trapezoidPool { 3 * n + 1 },
-	treeNodePool { n + (5 * n) + (3 * n + 1) },	//! better calculation needed
-	treeRootNode { nullptr },
-	curOutIndex { 0 },
-	randomizeSegments { true },
-	triangleWinding { Winding::CCW }
+TriangulationState::TriangulationState(const std::vector<std::vector<math3d::vec2f>>& outlines)
 {
-	points.resize(n);
+	size_t numPoints = 0;
+	size_t numTris = 0;
+	for (auto& outl : outlines)
+	{
+		pointCoords.insert(pointCoords.end(), outl.begin(), outl.end());
+		numPoints += outl.size();
+		numTris += outl.size() - 2;
+	}
 
-	for (size_t i = 0; i < n; ++i)
+	points.resize(numPoints);
+
+	for (size_t i = 0; i < numPoints; ++i)
 	{
 		points[i].index = i;
 		points[i].node = nullptr;
 	}
 
-	segments.resize(n);
+	segments.resize(numPoints);
 
-	for (size_t i = 0; i < n; ++i)
+	size_t i = 0;
+	for (auto& outl : outlines)
 	{
-		Segment& seg = segments[i];
-		size_t ptAIndex = i;
-		size_t ptBIndex = (i + 1) % n;
-
-		if (PointsVerticalRelation(pts[ptAIndex], pts[ptBIndex]) == VerticalRelation::Below)
+		for (size_t j = 0; j < outl.size(); ++j)
 		{
-			seg.lowerPointIndex = ptAIndex;
-			seg.upperPointIndex = ptBIndex;
-		}
-		else
-		{
-			seg.lowerPointIndex = ptBIndex;
-			seg.upperPointIndex = ptAIndex;
+			Segment& seg = segments[i + j];
+			size_t ptAIndex = j;
+			size_t ptBIndex = (j + 1) % outl.size();
+
+			if (PointsVerticalRelation(outl[ptAIndex], outl[ptBIndex]) == VerticalRelation::Below)
+			{
+				seg.lowerPointIndex = i + ptAIndex;
+				seg.upperPointIndex = i + ptBIndex;
+				seg.upward = true;
+			}
+			else
+			{
+				seg.lowerPointIndex = i + ptBIndex;
+				seg.upperPointIndex = i + ptAIndex;
+				seg.upward = false;
+			}
+
+			seg.line = math3d::line_from_points_2d(pointCoords[seg.lowerPointIndex], pointCoords[seg.upperPointIndex]);
 		}
 
-		seg.line = math3d::line_from_points_2d(pts[seg.lowerPointIndex], pts[seg.upperPointIndex]);
+		i += outl.size();
 	}
+}
+
+TriangulationState::~TriangulationState()
+{
+	for (auto trap : trapezoids)
+		delete trap;
+
+	for (auto node : treeNodes)
+		delete node;
 }
 
 static Trapezoid* AllocateTrapezoid(TriangulationState& state)
 {
-	auto newTrap = state.trapezoidPool.New();
+	auto newTrap = new Trapezoid;
 	state.trapezoids.push_back(newTrap);
 	return newTrap;
 }
@@ -109,7 +126,28 @@ static void DeallocateTrapezoid(TriangulationState& state, Trapezoid* trapezoid)
 		}
 	}
 
-	state.trapezoidPool.Delete(trapezoid);
+	delete trapezoid;
+}
+
+static TrapezoidationTreeNode* AllocateTrapTreeNode(TriangulationState& state)
+{
+	auto newNode = new TrapezoidationTreeNode;
+	state.treeNodes.push_back(newNode);
+	return newNode;
+}
+
+static void DeallocateTrapTreeNode(TriangulationState& state, TrapezoidationTreeNode* node)
+{
+	for (auto it = state.treeNodes.begin(); it != state.treeNodes.end(); ++it)
+	{
+		if (*it == node)
+		{
+			state.treeNodes.erase(it);
+			break;
+		}
+	}
+
+	delete node;
 }
 
 // Add the point to the tree and return a pointer to the point node.
@@ -119,10 +157,10 @@ static TrapezoidationTreeNode* AddPoint(TriangulationState& state, size_t pointI
 	// If the tree is empty, place a new vertex node as the root with two child trapezoid nodes.
 	if (state.treeRootNode == nullptr)
 	{
-		auto rightChild = state.treeNodePool.New();
-		auto leftChild = state.treeNodePool.New();
+		auto rightChild = AllocateTrapTreeNode(state);
+		auto leftChild = AllocateTrapTreeNode(state);
 
-		state.treeRootNode = state.treeNodePool.New();
+		state.treeRootNode = AllocateTrapTreeNode(state);
 		state.treeRootNode->type = TrapezoidationTreeNode::Type::POINT;
 		state.treeRootNode->elementIndex = pointIndex;
 		state.treeRootNode->left = leftChild;
@@ -180,8 +218,8 @@ static TrapezoidationTreeNode* AddPoint(TriangulationState& state, size_t pointI
 			// We split this trapezoid in two by the horizontal line that goes through the vertex
 			// and add new trapezoid nodes as children of the vertex node.
 
-			auto upperTrapezoidNode = state.treeNodePool.New();
-			auto lowerTrapezoidNode = state.treeNodePool.New();
+			auto upperTrapezoidNode = AllocateTrapTreeNode(state);
+			auto lowerTrapezoidNode = AllocateTrapTreeNode(state);
 
 			auto oldTrap = node->trapezoid;
 			auto newTrap = AllocateTrapezoid(state);
@@ -426,7 +464,7 @@ static void ThreadSegment(
 	int rightSegIndex = leftTrap->rightSegmentIndex;
 
 	// Create new left trapezoid node.
-	leftTrapNode = state.treeNodePool.New();
+	leftTrapNode = AllocateTrapTreeNode(state);
 	leftTrapNode->type = TrapezoidationTreeNode::Type::TRAPEZOID;
 	leftTrapNode->parent = trapNode;
 	leftTrapNode->trapezoid = leftTrap;
@@ -434,7 +472,7 @@ static void ThreadSegment(
 	leftTrapNode->trapezoid->rightSegmentIndex = segmentIndex;
 
 	// Create new right trapezoid node.
-	rightTrapNode = state.treeNodePool.New();
+	rightTrapNode = AllocateTrapTreeNode(state);
 	rightTrapNode->type = TrapezoidationTreeNode::Type::TRAPEZOID;
 	rightTrapNode->parent = trapNode;
 	rightTrapNode->trapezoid = rightTrap;
@@ -582,7 +620,7 @@ static TrapezoidationTreeNode* MergeTrapezoids(TriangulationState& state, Trapez
 			curTrapNode->parent->right = prevTrapNode;
 
 		DeallocateTrapezoid(state, curTrap);
-		state.treeNodePool.Delete(curTrapNode);
+		DeallocateTrapTreeNode(state, curTrapNode);
 		return prevTrapNode;
 	}
 
@@ -643,20 +681,11 @@ static void DetermineInsideTrapezoids(TriangulationState& state)
 {
 	auto countCrossings = [&state](int segIndex, int& counter) {
 		auto& segment = state.segments[segIndex];
-		if (segIndex == static_cast<int>(state.segments.size()) - 1)
-		{
-			if (segment.upperPointIndex < segment.lowerPointIndex)
-				counter--;
-			else
-				counter++;
-		}
+
+		if (segment.upward)
+			counter--;
 		else
-		{
-			if (segment.upperPointIndex > segment.lowerPointIndex)
-				counter--;
-			else
-				counter++;
-		}
+			counter++;
 	};
 
 	for (auto trap : state.trapezoids)
@@ -768,8 +797,19 @@ static void DetermineInsideTrapezoids(TriangulationState& state)
 				else
 				{
 					// We have reached the trapezoid which is outside the polygon. Set the trapezoid status according to the fill rule.
-					if (segmentCrossCounter != 0)
-						trap->status = Trapezoid::Status::Inside;
+					switch (state.fillRule)
+					{
+					case FillRule::NON_ZERO:
+						if (segmentCrossCounter != 0)
+							trap->status = Trapezoid::Status::Inside;
+						break;
+
+					case FillRule::ODD:
+						if ((segmentCrossCounter & 1) == 1)
+							trap->status = Trapezoid::Status::Inside;
+						break;
+					}
+					
 					finished = true;
 				}
 
@@ -821,9 +861,9 @@ static void Triangulate(TriangulationState& state, std::vector<int>& monChain, S
 			if (state.triangleWinding == Winding::CW)
 				std::swap(ia, ic);
 
-			state.outIndices[state.curOutIndex++] = monChain[ia];
-			state.outIndices[state.curOutIndex++] = monChain[ib];
-			state.outIndices[state.curOutIndex++] = monChain[ic];
+			state.outIndices.push_back(monChain[ia]);
+			state.outIndices.push_back(monChain[ib]);
+			state.outIndices.push_back(monChain[ic]);
 
 			monChain.erase(monChain.begin() + ib);
 		}
@@ -839,35 +879,36 @@ static void Triangulate(TriangulationState& state, std::vector<int>& monChain, S
 	if ((monChainSide == Side::Left && state.triangleWinding == Winding::CW) ||
 		(monChainSide == Side::Right && state.triangleWinding == Winding::CCW))
 	{
-		state.outIndices[state.curOutIndex++] = monChain[0];
-		state.outIndices[state.curOutIndex++] = monChain[1];
-		state.outIndices[state.curOutIndex++] = monChain[2];
+		state.outIndices.push_back(monChain[0]);
+		state.outIndices.push_back(monChain[1]);
+		state.outIndices.push_back(monChain[2]);
 	}
 	else
 	{
-		state.outIndices[state.curOutIndex++] = monChain[2];
-		state.outIndices[state.curOutIndex++] = monChain[1];
-		state.outIndices[state.curOutIndex++] = monChain[0];
+		state.outIndices.push_back(monChain[2]);
+		state.outIndices.push_back(monChain[1]);
+		state.outIndices.push_back(monChain[0]);
 	}
 }
 
 static void TraverseTrapezoids(TriangulationState& state, Trapezoid* trap, Side monChainSide)
 {
-	std::vector<int> monChainVerts;
-
-	auto shouldSplit = [n = static_cast<int>(state.points.size())](Trapezoid* trap) -> bool
+	auto shouldSplit = [&state](Trapezoid* trap) -> bool
 	{
 		// The trapezoid should be split if a diagonal can be drawn between upper and lower points.
 		// In other words, it can be split when those points are not consecutive.
 
+		int n = static_cast<int>(state.points.size());
 		int lpi = trap->lowerPointIndex;
 		int upi = trap->upperPointIndex;
 
-		return (
+		auto& lseg = state.segments[trap->leftSegmentIndex];
+		auto& rseg = state.segments[trap->rightSegmentIndex];
+
+		return
 			trap->visited == false &&
-			((lpi + 1) % n) != upi &&
-			((upi + 1) % n) != lpi
-		);
+			(lseg.lowerPointIndex != lpi || lseg.upperPointIndex != upi) &&
+			(rseg.lowerPointIndex != lpi || rseg.upperPointIndex != upi);
 	};
 
 	// Search down until a the lowest trapezoid of the monotone polygon is found,
@@ -883,7 +924,13 @@ static void TraverseTrapezoids(TriangulationState& state, Trapezoid* trap, Side 
 			trap = trap->lower1;
 	}
 
+	// Do nothing if we have already started the chain with this trapezoid.
+	if (trap->chainStarted)
+		return;
+	trap->chainStarted = true;
+
 	// Follow the monotone chain upward and add it's vertices to the list.
+	std::vector<int> monChainVerts;
 	monChainVerts.push_back(trap->lowerPointIndex);
 	bool done = false;
 
@@ -910,6 +957,7 @@ static void TraverseTrapezoids(TriangulationState& state, Trapezoid* trap, Side 
 					trap->visited = true;
 					TraverseTrapezoids(state, trap, Side::Right);
 				}
+				trap->visited = true;
 				trap = trap->upper1;
 			}
 		}
@@ -930,6 +978,7 @@ static void TraverseTrapezoids(TriangulationState& state, Trapezoid* trap, Side 
 					trap->visited = true;
 					TraverseTrapezoids(state, trap, Side::Left);
 				}
+				trap->visited = true;
 			}
 
 			trap = trap->upper1;
@@ -943,25 +992,27 @@ static void TraverseTrapezoids(TriangulationState& state, Trapezoid* trap, Side 
 
 static void BuildMonotonePolysAndTriangulate(TriangulationState& state)
 {
-	Trapezoid* startTrap = nullptr;
-	for (auto trap : state.trapezoids)
+	while (true)
 	{
-		if (trap->status == Trapezoid::Status::Inside &&
-			trap->lower1 == nullptr && trap->lower2 == nullptr)
+		Trapezoid* startTrap = nullptr;
+		for (auto trap : state.trapezoids)
 		{
-			startTrap = trap;
-			break;
+			if (trap->visited == false &&
+				trap->status == Trapezoid::Status::Inside &&
+				trap->lower1 == nullptr && trap->lower2 == nullptr)
+			{
+				startTrap = trap;
+				break;
+			}
 		}
+
+		if (startTrap == nullptr)
+			return;
+
+		auto& lseg = state.segments[startTrap->leftSegmentIndex];
+		Side side = (lseg.upperPointIndex == startTrap->upperPointIndex) ? Side::Left : Side::Right;
+		TraverseTrapezoids(state, startTrap, side);
 	}
-
-	if (startTrap == nullptr)
-		return;
-
-	state.outIndices.resize((state.points.size() - 2) * 3);
-
-	auto& lseg = state.segments[startTrap->leftSegmentIndex];
-	Side side = (lseg.upperPointIndex == startTrap->upperPointIndex) ? Side::Left : Side::Right;
-	TraverseTrapezoids(state, startTrap, side);
 }
 
 bool TriangulatePolygon_Seidel(TriangulationState& state)

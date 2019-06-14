@@ -79,6 +79,7 @@ void SeidelVisualize::OnEditFinished()
 
 void SeidelVisualize::OnActionLoad()
 {
+	std::vector<std::vector<math3d::vec2f>> outlines;
 	std::vector<math3d::vec2f> points;
 
 	auto fileName = QFileDialog::getOpenFileName(this, "Load polygon", "", "Polygon files (*.poly)");
@@ -92,18 +93,29 @@ void SeidelVisualize::OnActionLoad()
 			QString line;
 			while ((line = inStream.readLine()).isEmpty() == false)
 			{
-				auto strList = line.split(' ');
-				if (strList.size() == 2)
+				if (line == "*")
 				{
-					points.push_back({ strList[0].toFloat(), strList[1].toFloat() });
+					if (!points.empty())
+						outlines.push_back(std::move(points));
+				}
+				else
+				{
+					auto strList = line.split(' ');
+					if (strList.size() == 2)
+					{
+						points.push_back({ strList[0].toFloat(), strList[1].toFloat() });
+					}
 				}
 			}
+
+			if (!points.empty())
+				outlines.push_back(std::move(points));
 		}
 	}
 
-	if (points.size() >= 3)
+	if (!outlines.empty())
 	{
-		ui.widgetInputPolygon->SetPolygon(points);
+		ui.widgetInputPolygon->SetOutlines(std::move(outlines));
 		_dbgSteps = std::numeric_limits<size_t>::max();
 		TriangulateAndDisplay();
 	}
@@ -113,7 +125,7 @@ void SeidelVisualize::OnActionSave()
 {
 	if (!ui.widgetInputPolygon->IsEditing())
 	{
-		const auto& points = ui.widgetInputPolygon->GetPoints();
+		const auto& outlines = ui.widgetInputPolygon->GetOutlines();
 
 		auto fileName = QFileDialog::getSaveFileName(this, "Save polygon", "", "Polygon files (*.poly)");
 
@@ -123,9 +135,16 @@ void SeidelVisualize::OnActionSave()
 			if (file.open(QIODevice::WriteOnly | QIODevice::Text))
 			{
 				QTextStream outStream { &file };
-				for (auto pt : points)
+				for (size_t i = 0; i < outlines.size(); ++i)
 				{
-					outStream << pt.x << " " << pt.y << "\n";
+					if (i > 0)
+						outStream << "*\n";
+
+					auto& outl = outlines[i];
+					for (auto& pt : outl)
+					{
+						outStream << pt.x << " " << pt.y << "\n";
+					}
 				}
 			}
 		}
@@ -227,10 +246,8 @@ void SeidelVisualize::TriangulateAndDisplay()
 	if (ui.widgetInputPolygon->IsEditing())
 		return;
 
-	const auto& points = ui.widgetInputPolygon->GetPoints();
-
 	delete _state;
-	_state = new Geometry::TriangulationState { points.data(), points.size() };
+	_state = new Geometry::TriangulationState { ui.widgetInputPolygon->GetOutlines() };
 	_state->randomizeSegments = false;
 	_state->dbgSteps = _dbgSteps;
 	_state->triangleWinding = _triangleWinding;
@@ -246,7 +263,7 @@ void SeidelVisualize::TriangulateAndDisplay()
 	DumpLog();
 }
 
-void SeidelVisualize::DumpTree(QTextStream& outStream)
+void SeidelVisualize::DumpTraps(QTextStream& outStream)
 {
 	if (_state == nullptr)
 		return;
@@ -254,6 +271,7 @@ void SeidelVisualize::DumpTree(QTextStream& outStream)
 	for (auto trap : _state->trapezoids)
 	{
 		outStream << "Trapezoid " << trap->number << "\n";
+		outStream << "inside: " << ((trap->status == Geometry::Trapezoid::Status::Inside) ? "yes\n" : "no\n");
 		outStream << "upper vertex: " << trap->upperPointIndex << "\n";
 		outStream << "lower vertex: " << trap->lowerPointIndex << "\n";
 		outStream << "left segment: " << trap->leftSegmentIndex << "\n";
@@ -303,13 +321,13 @@ void SeidelVisualize::DumpLog()
 		return;
 
 	{
-		QString path = QApplication::applicationDirPath() + "\\tree-dump.txt";
+		QString path = QApplication::applicationDirPath() + "\\trap-dump.txt";
 		QFile file { path };
 		if (file.open(QIODevice::WriteOnly | QIODevice::Text))
 		{
 			QTextStream outStream { &file };
 
-			DumpTree(outStream);
+			DumpTraps(outStream);
 		}
 	}
 

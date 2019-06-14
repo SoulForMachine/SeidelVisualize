@@ -4,7 +4,6 @@
 #include <vector>
 #include <random>
 #include "vec2.h"
-#include "PoolAllocator.h"
 
 
 namespace Geometry
@@ -26,6 +25,7 @@ struct Segment
 	size_t upperPointIndex;
 	size_t lowerPointIndex;
 	math3d::vec3f line;
+	bool upward;
 };
 
 
@@ -60,6 +60,7 @@ struct Trapezoid
 	TrapezoidationTreeNode* node = nullptr;
 	Status status = Status::Outside;
 	bool visited = false;
+	bool chainStarted = false;
 
 	const int number;
 	static int nextNumber;
@@ -98,23 +99,30 @@ enum class Winding
 	CCW,
 };
 
+enum class FillRule
+{
+	NON_ZERO,
+	ODD,
+};
+
 struct TriangulationState
 {
-	TriangulationState(const math3d::vec2f* pts, size_t n);
+	TriangulationState(const std::vector<std::vector<math3d::vec2f>>& outlines);
+	~TriangulationState();
 
-	const std::vector<math3d::vec2f> pointCoords;
+	std::vector<math3d::vec2f> pointCoords;
 	std::vector<Point> points;
 	std::vector<Segment> segments;
-	BaseLib::PoolAllocator<Trapezoid> trapezoidPool;
-	BaseLib::PoolAllocator<TrapezoidationTreeNode> treeNodePool;
-	TrapezoidationTreeNode* treeRootNode;
-	std::mt19937 rndEng { std::random_device{}() };
+	std::vector<TrapezoidationTreeNode*> treeNodes;
 	std::vector<Trapezoid*> trapezoids;
 	std::vector<unsigned short> outIndices;
 	std::vector<std::vector<int>> monChains;
-	int curOutIndex;
-	bool randomizeSegments;
-	Winding triangleWinding;
+
+	TrapezoidationTreeNode* treeRootNode = nullptr;
+	std::mt19937 rndEng { std::random_device{}() };
+	bool randomizeSegments = false;
+	Winding triangleWinding = Winding::CCW;
+	FillRule fillRule = FillRule::ODD;
 
 	size_t dbgSteps = 0;
 };

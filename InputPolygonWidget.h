@@ -40,9 +40,10 @@ public:
 	void SetListener(InputPolygonWidgetListener* listener);
 	void SetTreeState(Geometry::TriangulationState* state);
 	void ResetAndEdit();
-	const std::vector<math3d::vec2f>& GetPoints() const;
 	bool IsEditing() const { return _editing; }
-	void SetPolygon(const std::vector<math3d::vec2f>& points);
+	const std::vector<std::vector<math3d::vec2f>>& GetOutlines() const { return _outlines; }
+	void SetOutlines(const std::vector<std::vector<math3d::vec2f>>& outlines);
+	void SetOutlines(std::vector<std::vector<math3d::vec2f>>&& outlines);
 	void ResetView();
 
 	bool GetViewTrapezoids() const { return _viewTraps; }
@@ -64,6 +65,8 @@ private:
 
 	math3d::vec2f ScreenToWorld(const math3d::vec2i& screenPt);
 	math3d::vec2i WorldToScreen(const math3d::vec2f& worldPt);
+	void DrawAxes(QPainter& painter);
+	void DrawOutlines(QPainter& painter);
 	void DrawTrapezoids(QPainter& painter);
 	void DrawTriangles(QPainter& painter);
 	void DrawMonotoneChains(QPainter& painter);
@@ -74,13 +77,15 @@ private:
 	math3d::vec2i _pan { 0, 0 };
 	float _zoom { 1.0f };
 	std::vector<math3d::vec2f> _points;
+	std::vector<std::vector<math3d::vec2f>> _outlines;
 	math3d::vec2i _cursorPos { 0.0f, 0.0f };
 	math3d::vec2i _prevPanPos { 0.0f, 0.0f };
+	QFont _font { "Verdana", 10 };
+	math3d::vec4f _aabBox;
+	ResultViewType _resultViewType = ResultViewType::Triangles;
 	bool _editing = true;
 	bool _panning = false;
 	bool _initPan = true;
-	QFont _font { "Verdana", 10 };
-	math3d::vec4f _aabBox;
 	bool _viewTraps = true;
-	ResultViewType _resultViewType = ResultViewType::Triangles;
+	bool _outlineStart = true;
 };

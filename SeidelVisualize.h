@@ -36,7 +36,7 @@ private slots:
 
 private:
 	void TriangulateAndDisplay();
-	void DumpTree(QTextStream& outStream);
+	void DumpTraps(QTextStream& outStream);
 	void DumpMonChains(QTextStream& outStream);
 	void DumpTris(QTextStream& outStream);
 	void DumpLog();
