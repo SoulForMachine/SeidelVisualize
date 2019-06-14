@@ -47,6 +47,21 @@ SeidelVisualize::SeidelVisualize(QWidget *parent)
 		break;
 	}
 
+	auto actionGroupFillRule = new QActionGroup { this };
+	actionGroupFillRule->addAction(ui.actionOptionsFillRuleNonZero);
+	actionGroupFillRule->addAction(ui.actionOptionsFillRuleOdd);
+
+	switch (_fillRule)
+	{
+	case Geometry::FillRule::NON_ZERO:
+		ui.actionOptionsFillRuleNonZero->setChecked(true);
+		break;
+
+	case Geometry::FillRule::ODD:
+		ui.actionOptionsFillRuleOdd->setChecked(true);
+		break;
+	}
+
 	ui.actionViewTrapezoids->setChecked(ui.widgetInputPolygon->GetViewTrapezoids());
 	ui.actionOptionsRandomizeSegments->setChecked(_randSegments);
 
@@ -64,6 +79,7 @@ SeidelVisualize::SeidelVisualize(QWidget *parent)
 	connect(ui.actionOptionsRandomizeSegments, &QAction::triggered, this, &SeidelVisualize::OnActionOptionsRandSeg);
 	connect(actionGroupResults, &QActionGroup::triggered, this, &SeidelVisualize::OnActionViewResult);
 	connect(actionGroupTrisWind, &QActionGroup::triggered, this, &SeidelVisualize::OnActionOptionsTrisWinding);
+	connect(actionGroupFillRule, &QActionGroup::triggered, this, &SeidelVisualize::OnActionOptionsFillRule);
 }
 
 SeidelVisualize::~SeidelVisualize()
@@ -241,6 +257,17 @@ void SeidelVisualize::OnActionOptionsTrisWinding(QAction* action)
 	TriangulateAndDisplay();
 }
 
+void SeidelVisualize::OnActionOptionsFillRule(QAction* action)
+{
+	if (action == ui.actionOptionsFillRuleNonZero)
+		_fillRule = Geometry::FillRule::NON_ZERO;
+	else if (action == ui.actionOptionsFillRuleOdd)
+		_fillRule = Geometry::FillRule::ODD;
+
+	_dbgSteps = std::numeric_limits<size_t>::max();
+	TriangulateAndDisplay();
+}
+
 void SeidelVisualize::TriangulateAndDisplay()
 {
 	if (ui.widgetInputPolygon->IsEditing())
@@ -252,6 +279,7 @@ void SeidelVisualize::TriangulateAndDisplay()
 	_state->dbgSteps = _dbgSteps;
 	_state->triangleWinding = _triangleWinding;
 	_state->randomizeSegments = _randSegments;
+	_state->fillRule = _fillRule;
 
 	Geometry::TriangulatePolygon_Seidel(*_state);
 

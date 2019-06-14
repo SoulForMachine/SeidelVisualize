@@ -88,7 +88,15 @@
      <addaction name="actionOptionsTrisWindCCW"/>
      <addaction name="actionOptionsTrisWindCW"/>
     </widget>
+    <widget class="QMenu" name="menuFill_rule">
+     <property name="title">
+      <string>Fill rule</string>
+     </property>
+     <addaction name="actionOptionsFillRuleNonZero"/>
+     <addaction name="actionOptionsFillRuleOdd"/>
+    </widget>
     <addaction name="menuOptionsTriangleWinding"/>
+    <addaction name="menuFill_rule"/>
     <addaction name="actionOptionsRandomizeSegments"/>
    </widget>
    <addaction name="menuCommands"/>
@@ -231,6 +239,22 @@
    </property>
    <property name="text">
     <string>CW</string>
+   </property>
+  </action>
+  <action name="actionOptionsFillRuleNonZero">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Non-zero</string>
+   </property>
+  </action>
+  <action name="actionOptionsFillRuleOdd">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Odd</string>
    </property>
   </action>
  </widget>

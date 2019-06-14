@@ -33,6 +33,7 @@ private slots:
 	void OnActionViewResult(QAction* action);
 	void OnActionOptionsRandSeg();
 	void OnActionOptionsTrisWinding(QAction* action);
+	void OnActionOptionsFillRule(QAction* action);
 
 private:
 	void TriangulateAndDisplay();
@@ -45,5 +46,6 @@ private:
 	Geometry::TriangulationState* _state = nullptr;
 	size_t _dbgSteps = std::numeric_limits<size_t>::max();
 	Geometry::Winding _triangleWinding = Geometry::Winding::CCW;
+	Geometry::FillRule _fillRule = Geometry::FillRule::ODD;
 	bool _randSegments = false;
 };
