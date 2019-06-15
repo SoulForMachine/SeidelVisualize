@@ -41,12 +41,6 @@ struct Trapezoid
 		RIGHT
 	};
 
-	enum class Status
-	{
-		Inside,
-		Outside
-	};
-
 	int upperPointIndex = -1;
 	int lowerPointIndex = -1;
 	Trapezoid* upper1 = nullptr;
@@ -58,9 +52,9 @@ struct Trapezoid
 	int leftSegmentIndex = -1;
 	int rightSegmentIndex = -1;
 	TrapezoidationTreeNode* node = nullptr;
-	Status status = Status::Outside;
-	bool visited = false;
-	bool chainStarted = false;
+	bool inside = false;
+	bool visited[2] = { false, false };
+	bool hasDiagonal = false;
 
 	const int number;
 	static int nextNumber;
@@ -129,11 +123,11 @@ struct TriangulationState
 
 
 //
-// Triangulates a closed polygonal curve with no intersecting segments using Seidel's algorithm.
-// Input: points of a simple closed polygonal curve.
-// points[i] and points[(i + 1) % numPoints] are endpoints of one line segment.
+// Triangulates one or more closed polygonal curves with no intersecting segments using Seidel's algorithm.
+// Input: points of simple closed polygonal curves.
+// For each outline points[i] and points[(i + 1) % numPoints] are endpoints of one line segment.
 // It is assumed that there are no equal points.
-// Output: an array of index triplets which form numPoints - 2 triangles by indexing into the input array of points.
+// Output: an array of index triplets which form triangles by indexing into the input array of points.
 //
 bool TriangulatePolygon_Seidel(TriangulationState& state);
 

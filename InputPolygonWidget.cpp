@@ -365,7 +365,7 @@ void InputPolygonWidget::DrawTrapezoids(QPainter& painter)
 
 		auto scrPos = WorldToScreen(position);
 
-		painter.setPen(QPen { (trap->status == Geometry::Trapezoid::Status::Inside) ? Qt::GlobalColor::darkGreen : Qt::GlobalColor::red });
+		painter.setPen(QPen { trap->inside ? Qt::GlobalColor::darkGreen : Qt::GlobalColor::red });
 		auto strTrapNum = QString::number(trap->number);
 		QFontMetrics fontMetrics { _font, painter.device() };
 		auto textSize = fontMetrics.size(Qt::TextSingleLine, strTrapNum);

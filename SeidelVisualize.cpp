@@ -299,7 +299,7 @@ void SeidelVisualize::DumpTraps(QTextStream& outStream)
 	for (auto trap : _state->trapezoids)
 	{
 		outStream << "Trapezoid " << trap->number << "\n";
-		outStream << "inside: " << ((trap->status == Geometry::Trapezoid::Status::Inside) ? "yes\n" : "no\n");
+		outStream << "inside: " << (trap->inside ? "yes\n" : "no\n");
 		outStream << "upper vertex: " << trap->upperPointIndex << "\n";
 		outStream << "lower vertex: " << trap->lowerPointIndex << "\n";
 		outStream << "left segment: " << trap->leftSegmentIndex << "\n";
