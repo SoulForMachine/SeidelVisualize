@@ -1,7 +1,7 @@
 #pragma once
 
 #include <limits>
-#include <set>
+#include <vector>
 #include <QtWidgets/QMainWindow>
 #include "ui_SeidelVisualize.h"
 #include "TriangulatePolygon_Seidel.h"
@@ -16,6 +16,8 @@ public:
 	~SeidelVisualize();
 
 	virtual void OnEditFinished() override;
+
+	static void Benchmark(const QString& polyFile, int numIters);
 
 private slots:
 
@@ -41,6 +43,8 @@ private:
 	void DumpMonChains(QTextStream& outStream);
 	void DumpTris(QTextStream& outStream);
 	void DumpLog();
+	static bool LoadPolyFile(const QString& polyFile, std::vector<std::vector<math3d::vec2f>>& outlines);
+	static bool SavePolyFile(const QString& polyFile, const std::vector<std::vector<math3d::vec2f>>& outlines);
 
 	Ui::SeidelVisualizeClass ui;
 	Geometry::TriangulationState* _state = nullptr;

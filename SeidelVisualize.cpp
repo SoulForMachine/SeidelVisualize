@@ -1,4 +1,5 @@
 #include "SeidelVisualize.h"
+#include <chrono>
 #include <QFileDialog>
 #include <QFile>
 #include <QTextStream>
@@ -93,47 +94,43 @@ void SeidelVisualize::OnEditFinished()
 	TriangulateAndDisplay();
 }
 
+void SeidelVisualize::Benchmark(const QString& polyFile, int numIters)
+{
+	std::vector<std::vector<math3d::vec2f>> outlines;
+	if (LoadPolyFile(polyFile, outlines))
+	{
+		std::chrono::high_resolution_clock hiResClk;
+		auto startTime = hiResClk.now();
+
+		for (int i = 0; i < numIters; ++i)
+		{
+			Geometry::TriangulationState state { outlines };
+			Geometry::TriangulatePolygon_Seidel(state);
+		}
+
+		auto endTime = hiResClk.now();
+		auto duration = endTime - startTime;
+		printf("Completed in %f s\n", duration.count() / 1'000'000'000.0);
+	}
+}
+
 void SeidelVisualize::OnActionLoad()
 {
 	std::vector<std::vector<math3d::vec2f>> outlines;
-	std::vector<math3d::vec2f> points;
 
 	auto fileName = QFileDialog::getOpenFileName(this, "Load polygon", "", "Polygon files (*.poly)");
 
 	if (!fileName.isEmpty())
 	{
-		QFile file { fileName };
-		if (file.open(QIODevice::ReadOnly | QIODevice::Text))
+		if (LoadPolyFile(fileName, outlines))
 		{
-			QTextStream inStream { &file };
-			QString line;
-			while ((line = inStream.readLine()).isEmpty() == false)
+			if (!outlines.empty())
 			{
-				if (line == "*")
-				{
-					if (!points.empty())
-						outlines.push_back(std::move(points));
-				}
-				else
-				{
-					auto strList = line.split(' ');
-					if (strList.size() == 2)
-					{
-						points.push_back({ strList[0].toFloat(), strList[1].toFloat() });
-					}
-				}
+				ui.widgetInputPolygon->SetOutlines(std::move(outlines));
+				_dbgSteps = std::numeric_limits<size_t>::max();
+				TriangulateAndDisplay();
 			}
-
-			if (!points.empty())
-				outlines.push_back(std::move(points));
 		}
-	}
-
-	if (!outlines.empty())
-	{
-		ui.widgetInputPolygon->SetOutlines(std::move(outlines));
-		_dbgSteps = std::numeric_limits<size_t>::max();
-		TriangulateAndDisplay();
 	}
 }
 
@@ -147,22 +144,7 @@ void SeidelVisualize::OnActionSave()
 
 		if (!fileName.isEmpty())
 		{
-			QFile file { fileName };
-			if (file.open(QIODevice::WriteOnly | QIODevice::Text))
-			{
-				QTextStream outStream { &file };
-				for (size_t i = 0; i < outlines.size(); ++i)
-				{
-					if (i > 0)
-						outStream << "*\n";
-
-					auto& outl = outlines[i];
-					for (auto& pt : outl)
-					{
-						outStream << pt.x << " " << pt.y << "\n";
-					}
-				}
-			}
+			SavePolyFile(fileName, outlines);
 		}
 	}
 }
@@ -380,4 +362,62 @@ void SeidelVisualize::DumpLog()
 			DumpTris(outStream);
 		}
 	}
+}
+
+bool SeidelVisualize::LoadPolyFile(const QString& polyFile, std::vector<std::vector<math3d::vec2f>>& outlines)
+{
+	std::vector<math3d::vec2f> points;
+	QFile file { polyFile };
+	if (file.open(QIODevice::ReadOnly | QIODevice::Text))
+	{
+		QTextStream inStream { &file };
+		QString line;
+		while ((line = inStream.readLine()).isEmpty() == false)
+		{
+			if (line == "*")
+			{
+				if (!points.empty())
+					outlines.push_back(std::move(points));
+			}
+			else
+			{
+				auto strList = line.split(' ');
+				if (strList.size() == 2)
+				{
+					points.push_back({ strList[0].toFloat(), strList[1].toFloat() });
+				}
+			}
+		}
+
+		if (!points.empty())
+			outlines.push_back(std::move(points));
+
+		return true;
+	}
+
+	return false;
+}
+
+bool SeidelVisualize::SavePolyFile(const QString& polyFile, const std::vector<std::vector<math3d::vec2f>>& outlines)
+{
+	QFile file { polyFile };
+	if (file.open(QIODevice::WriteOnly | QIODevice::Text))
+	{
+		QTextStream outStream { &file };
+		for (size_t i = 0; i < outlines.size(); ++i)
+		{
+			if (i > 0)
+				outStream << "*\n";
+
+			auto& outl = outlines[i];
+			for (auto& pt : outl)
+			{
+				outStream << pt.x << " " << pt.y << "\n";
+			}
+		}
+
+		return true;
+	}
+
+	return false;
 }

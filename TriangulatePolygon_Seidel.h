@@ -118,7 +118,7 @@ struct TriangulationState
 	Winding triangleWinding = Winding::CCW;
 	FillRule fillRule = FillRule::ODD;
 
-	size_t dbgSteps = 0;
+	size_t dbgSteps = std::numeric_limits<size_t>::max();
 };
 
 
