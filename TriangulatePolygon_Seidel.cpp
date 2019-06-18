@@ -150,9 +150,9 @@ static void DeallocateTrapTreeNode(TriangulationState& state, TrapezoidationTree
 	delete node;
 }
 
-// Add the point to the tree and return a pointer to the point node.
-// If the point has already been inserted, return a pointer to an existing point node.
-static TrapezoidationTreeNode* AddPoint(TriangulationState& state, size_t pointIndex)
+// Add the point to the tree and return a pointer to the lower trapezoid.
+// If the point has already been inserted, return nullptr.
+static Trapezoid* AddPoint(TriangulationState& state, size_t pointIndex)
 {
 	// If the tree is empty, place a new vertex node as the root with two child trapezoid nodes.
 	if (state.treeRootNode == nullptr)
@@ -185,7 +185,7 @@ static TrapezoidationTreeNode* AddPoint(TriangulationState& state, size_t pointI
 
 		state.points[pointIndex].node = state.treeRootNode;
 
-		return state.treeRootNode;
+		return leftChild->trapezoid;
 	}
 
 	TrapezoidationTreeNode* node = state.treeRootNode;
@@ -198,7 +198,7 @@ static TrapezoidationTreeNode* AddPoint(TriangulationState& state, size_t pointI
 		{
 			// If this is the same vertex, return the existing node.
 			if (pointIndex == node->elementIndex)
-				return node;
+				return nullptr;
 
 			auto rel = PointsVerticalRelation(state.pointCoords[pointIndex], state.pointCoords[node->elementIndex]);
 			node = (rel == VerticalRelation::BELOW) ? node->left : node->right;
@@ -276,7 +276,7 @@ static TrapezoidationTreeNode* AddPoint(TriangulationState& state, size_t pointI
 
 			state.points[pointIndex].node = node;
 
-			return node;
+			return lowerTrapezoidNode->trapezoid;
 		}
 		}
 	}
@@ -489,9 +489,9 @@ static void ThreadSegment(
 	trapNode->right = rightTrapNode;
 }
 
-static TrapezoidationTreeNode* GetFirstTrapezoidForNewSegment(TriangulationState& state, const Segment& segment)
+static TrapezoidationTreeNode* GetFirstTrapezoidForNewSegment(TriangulationState& state, TrapezoidationTreeNode* startNode, const Segment& segment)
 {
-	TrapezoidationTreeNode* node = state.treeRootNode;
+	TrapezoidationTreeNode* node = startNode;
 
 	while (node != nullptr)
 	{
@@ -630,11 +630,13 @@ static TrapezoidationTreeNode* MergeTrapezoids(TriangulationState& state, Trapez
 static void AddSegment(TriangulationState& state, size_t segmentIndex)
 {
 	Segment& segment = state.segments[segmentIndex];
+	Trapezoid* firstTrap = nullptr;
 
 	// First add upper and lower segment vertices to the tree.
 
-	if (state.points[segment.upperPointIndex].node == nullptr)
-		AddPoint(state, segment.upperPointIndex);
+	auto upperPtNode = state.points[segment.upperPointIndex].node;
+	if (upperPtNode == nullptr)
+		firstTrap = AddPoint(state, segment.upperPointIndex);
 
 	state.dbgSteps--;
 	if (state.dbgSteps == 0)
@@ -650,7 +652,7 @@ static void AddSegment(TriangulationState& state, size_t segmentIndex)
 	// Thread the segment from its upper point to its lower point through trapezoids and split
 	// them in half.
 
-	TrapezoidationTreeNode* trapezoidNode = GetFirstTrapezoidForNewSegment(state, segment);
+	TrapezoidationTreeNode* trapezoidNode = firstTrap ? firstTrap->node : GetFirstTrapezoidForNewSegment(state, upperPtNode, segment);
 	TrapezoidationTreeNode* prevLeftTrapNode = nullptr;
 	TrapezoidationTreeNode* prevRightTrapNode = nullptr;
 
