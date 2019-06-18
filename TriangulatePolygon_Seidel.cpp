@@ -285,14 +285,14 @@ static Trapezoid* AddPoint(TriangulationState& state, size_t pointIndex)
 	return nullptr;
 }
 
-static void ThreadSegment(
+static TrapezoidationTreeNode* ThreadSegment(
 	TriangulationState& state,
 	size_t segmentIndex,
 	TrapezoidationTreeNode* trapNode,
 	TrapezoidationTreeNode*& leftTrapNode,
-	TrapezoidationTreeNode*& rightTrapNode,
-	TrapezoidationTreeNode*& nextTrapNode)
+	TrapezoidationTreeNode*& rightTrapNode)
 {
+	TrapezoidationTreeNode* nextTrapNode = nullptr;
 	auto leftTrap = trapNode->trapezoid;	// Reuse the trapezoid we are splitting as a new left trapezoid.
 	auto rightTrap = AllocateTrapezoid(state);
 	auto& segment = state.segments[segmentIndex];
@@ -487,6 +487,8 @@ static void ThreadSegment(
 	trapNode->elementIndex = segmentIndex;
 	trapNode->left = leftTrapNode;
 	trapNode->right = rightTrapNode;
+
+	return nextTrapNode;
 }
 
 static TrapezoidationTreeNode* GetFirstTrapezoidForNewSegment(TriangulationState& state, TrapezoidationTreeNode* startNode, const Segment& segment)
@@ -664,7 +666,7 @@ static void AddSegment(TriangulationState& state, size_t segmentIndex)
 		TrapezoidationTreeNode* rightTrapezoidNode;
 		TrapezoidationTreeNode* nextTrapezoidNode;
 
-		ThreadSegment(state, segmentIndex, trapezoidNode, leftTrapezoidNode, rightTrapezoidNode, nextTrapezoidNode);
+		nextTrapezoidNode = ThreadSegment(state, segmentIndex, trapezoidNode, leftTrapezoidNode, rightTrapezoidNode);
 
 		// After the split, merge left and right trapezoids with their upper neighbours if they are bounded by
 		// the same left and right segments.
@@ -998,16 +1000,20 @@ static void TraverseTrapezoids(TriangulationState& state, Trapezoid* trap, Side 
 
 static void BuildMonotonePolysAndTriangulate(TriangulationState& state)
 {
+	size_t startIndex = 0;
+
 	while (true)
 	{
 		Trapezoid* startTrap = nullptr;
-		for (auto trap : state.trapezoids)
+		for (size_t i = startIndex; i < state.trapezoids.size(); ++i)
 		{
+			auto trap = state.trapezoids[i];
 			if (trap->inside &&
 				!trap->visited[0] && !trap->visited[1] &&
 				trap->lower1 == nullptr && trap->lower2 == nullptr)
 			{
 				startTrap = trap;
+				startIndex = i + 1;
 				break;
 			}
 		}
@@ -1030,10 +1036,6 @@ bool TriangulatePolygon_Seidel(TriangulationState& state)
 	{
 		return false;
 	}
-
-	const size_t numDiagonals = numPoints - 3;
-	const size_t numTriangles = numPoints - 2;
-	const size_t maxNumTrapezoids = 3 * numPoints + 1;
 
 	Trapezoid::nextNumber = 1;
 
