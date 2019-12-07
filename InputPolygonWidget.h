@@ -71,6 +71,7 @@ private:
 	void DrawTriangles(QPainter& painter);
 	void DrawMonotoneChains(QPainter& painter);
 	void RecalcBBox();
+	bool IsNewSegmentValid(const math3d::vec2f& newPt, bool closing);
 
 	Geometry::TriangulationState* _state = nullptr;
 	InputPolygonWidgetListener* _listener = nullptr;

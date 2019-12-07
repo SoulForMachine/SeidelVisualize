@@ -86,6 +86,20 @@ void InputPolygonWidget::paintEvent(QPaintEvent* event)
 	if (_editing)
 	{
 		DrawOutlines(painter);
+
+		if (!_points.empty())
+		{
+			auto wCursor = ScreenToWorld(_cursorPos);
+			auto lastPt = _points.back();
+			bool isSegValid = IsNewSegmentValid(wCursor, false);
+			
+			painter.setPen(QPen { isSegValid ? Qt::GlobalColor::darkBlue : Qt::GlobalColor::darkRed });
+			painter.setBrush(QBrush { isSegValid ? Qt::GlobalColor::darkBlue : Qt::GlobalColor::darkRed });
+
+			auto sLastPt = WorldToScreen(lastPt);
+			painter.drawLine(_cursorPos.x, _cursorPos.y, sLastPt.x, sLastPt.y);
+		}
+
 		painter.drawEllipse({ _cursorPos.x, _cursorPos.y }, 5, 5);
 	}
 	else
@@ -127,9 +141,13 @@ void InputPolygonWidget::mousePressEvent(QMouseEvent* event)
 	{
 		if (_editing)
 		{
-			_points.push_back(ScreenToWorld({ event->x(), event->y() }));
-			_outlineStart = false;
-			update();
+			auto newPt = ScreenToWorld({ event->x(), event->y() });
+			if (_points.empty() || IsNewSegmentValid(newPt, false))
+			{
+				_points.push_back(newPt);
+				_outlineStart = false;
+				update();
+			}
 		}
 		break;
 	}
@@ -149,9 +167,12 @@ void InputPolygonWidget::mousePressEvent(QMouseEvent* event)
 			}
 			else if (_points.size() > 2)
 			{
-				_outlineStart = true;
-				_outlines.push_back(std::move(_points));
-				update();
+				if (IsNewSegmentValid(_points.front(), true))
+				{
+					_outlineStart = true;
+					_outlines.push_back(std::move(_points));
+					update();
+				}
 			}
 		}
 		break;
@@ -279,9 +300,7 @@ void InputPolygonWidget::DrawOutlines(QPainter& painter)
 		painter.drawText(QPoint { scrPt.x - 16, scrPt.y }, QString::number(ptInd++));
 	}
 	
-	scrPts.push_back({ _cursorPos.x, _cursorPos.y });
 	painter.drawPolyline(scrPts.data(), scrPts.size());
-	scrPts.clear();
 }
 
 void InputPolygonWidget::DrawTrapezoids(QPainter& painter)
@@ -407,22 +426,22 @@ void InputPolygonWidget::DrawTrapezoids(QPainter& painter)
 void InputPolygonWidget::DrawTriangles(QPainter& painter)
 {
 	if (_state == nullptr)
-		return;
+return;
 
-	painter.setPen(QPen { Qt::cyan });
+painter.setPen(QPen { Qt::cyan });
 
-	for (size_t i = 0; i < _state->outIndices.size(); i += 3)
+for (size_t i = 0; i < _state->outIndices.size(); i += 3)
+{
+	std::vector<QPoint> points;
+
+	for (size_t j = 0; j < 4; ++j)
 	{
-		std::vector<QPoint> points;
-
-		for (size_t j = 0; j < 4; ++j)
-		{
-			auto scrPt = WorldToScreen(_state->pointCoords[_state->outIndices[i + j % 3]]);
-			points.push_back(QPoint { scrPt.x, scrPt.y });
-		}
-
-		painter.drawPolyline(points.data(), static_cast<int>(points.size()));
+		auto scrPt = WorldToScreen(_state->pointCoords[_state->outIndices[i + j % 3]]);
+		points.push_back(QPoint { scrPt.x, scrPt.y });
 	}
+
+	painter.drawPolyline(points.data(), static_cast<int>(points.size()));
+}
 }
 
 void InputPolygonWidget::DrawMonotoneChains(QPainter& painter)
@@ -468,4 +487,61 @@ void InputPolygonWidget::RecalcBBox()
 				_aabBox.w = pt.y;
 		}
 	}
+}
+
+bool InputPolygonWidget::IsNewSegmentValid(const math3d::vec2f& newPt, bool closing)
+{
+	if (_points.empty())
+		return true;
+
+	const math3d::vec2f& prevPt = _points.back();
+
+	// We don't want to create a zero-length segment.
+	if (newPt == prevPt)
+		return false;
+
+	// The new segment must not intersect previously created outlines.
+	for (auto& outline : _outlines)
+	{
+		size_t numPts = outline.size();
+		for (size_t i = 0; i < numPts; ++i)
+		{
+			if (math3d::do_line_segments_intersect_2d(prevPt, newPt, outline[i], outline[(i + 1) % numPts]))
+				return false;
+		}
+	}
+
+	// Check the currently created outline.
+	if (_points.size() < 2)
+		return true;
+
+	if (closing)
+	{
+		// If we are closing the outline, prevPt must equal the last point inserted and newPt must equal first.
+		// This last segment must not intersect any previous segment.
+		if (newPt != _points.front())
+			return false;
+	}
+
+	size_t numSeg = _points.size() - 1;
+
+	for (size_t i = 0; i < numSeg; ++i)
+	{
+		if ((i == 0 && closing) || (i == numSeg - 1))
+		{
+			if (math3d::do_line_segments_intersect_exclude_endpoints_2d(_points[i], _points[i + 1], prevPt, newPt))
+			{
+				return false;
+			}
+		}
+		else
+		{
+			if (math3d::do_line_segments_intersect_2d(_points[i], _points[i + 1], prevPt, newPt))
+			{
+				return false;
+			}
+		}
+	}
+
+	return true;
 }

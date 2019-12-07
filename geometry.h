@@ -322,6 +322,205 @@ constexpr vec2<_ST> unit_vector_from_angle(_ST angle)
 	return { std::cos(angle), std::sin(angle) };
 }
 
+enum class PointOrientation
+{
+	CW,
+	CCW,
+	COLINEAR
+};
+
+template <class _ST>
+constexpr PointOrientation orientation_2d(const vec2<_ST>& pt1, const vec2<_ST>& pt2, const vec2<_ST>& pt3)
+{
+	_ST val = (pt2.y - pt1.y) * (pt3.x - pt2.x) - (pt2.x - pt1.x) * (pt3.y - pt2.y);
+
+	if (val == _ST(0))
+		return PointOrientation::COLINEAR;
+	else if (val > _ST(0))
+		return PointOrientation::CW;
+	else
+		return PointOrientation::CCW;
+}
+
+template <class _ST>
+constexpr bool is_within_bounds(const vec2<_ST>& pt, const vec2<_ST>& bound_pt1, const vec2<_ST>& bound_pt2)
+{
+	auto minX = std::min(bound_pt1.x, bound_pt2.x);
+	auto maxX = std::max(bound_pt1.x, bound_pt2.x);
+	auto minY = std::min(bound_pt1.y, bound_pt2.y);
+	auto maxY = std::max(bound_pt1.y, bound_pt2.y);
+
+	return (
+		pt.x >= minX && pt.x <= maxX &&
+		pt.y >= minY && pt.y <= maxY
+	);
+};
+
+template <class _ST>
+constexpr bool is_point_on_segment(const vec2<_ST>& pt, const vec2<_ST>& seg_start, const vec2<_ST>& seg_end)
+{
+	return (
+		orientation_2d(seg_start, seg_end, pt) == PointOrientation::COLINEAR &&
+		is_within_bounds(pt, seg_start, seg_end)
+	);
+}
+
+template <class _ST>
+constexpr bool do_line_segments_intersect_2d(const vec2<_ST>& seg1_start, const vec2<_ST>& seg1_end, const vec2<_ST>& seg2_start, const vec2<_ST>& seg2_end)
+{
+	auto or1 = orientation_2d(seg1_start, seg1_end, seg2_start);
+	auto or2 = orientation_2d(seg1_start, seg1_end, seg2_end);
+	auto or3 = orientation_2d(seg2_start, seg2_end, seg1_start);
+	auto or4 = orientation_2d(seg2_start, seg2_end, seg1_end);
+
+	if (or1 != or2 && or3 != or4)
+		return true;
+
+	if (or1 == PointOrientation::COLINEAR && is_within_bounds(seg2_start, seg1_start, seg1_end))
+		return true;
+
+	if (or2 == PointOrientation::COLINEAR && is_within_bounds(seg2_end, seg1_start, seg1_end))
+		return true;
+
+	if (or3 == PointOrientation::COLINEAR && is_within_bounds(seg1_start, seg2_start, seg2_end))
+		return true;
+
+	if (or4 == PointOrientation::COLINEAR && is_within_bounds(seg1_end, seg2_start, seg2_end))
+		return true;
+
+	return false;
+}
+
+template <class _ST>
+constexpr bool do_line_segments_intersect_exclude_endpoints_2d(const vec2<_ST>& seg1_start, const vec2<_ST>& seg1_end, const vec2<_ST>& seg2_start, const vec2<_ST>& seg2_end)
+{
+	auto or1 = orientation_2d(seg1_start, seg1_end, seg2_start);
+	auto or2 = orientation_2d(seg1_start, seg1_end, seg2_end);
+	auto or3 = orientation_2d(seg2_start, seg2_end, seg1_start);
+	auto or4 = orientation_2d(seg2_start, seg2_end, seg1_end);
+
+	if (or1 != or2 && or3 != or4)
+	{
+		if (or1 == PointOrientation::COLINEAR)
+		{
+			if (seg2_start == seg1_start || seg2_start == seg1_end)
+				return false;
+		}		
+		else if (or2 == PointOrientation::COLINEAR)
+		{
+			if (seg2_end == seg1_start || seg2_end == seg1_end)
+				return false;
+		}
+
+		if (or3 == PointOrientation::COLINEAR)
+		{
+			if (seg1_start == seg2_start || seg1_start == seg2_end)
+				return false;
+		}
+		else if (or4 == PointOrientation::COLINEAR)
+		{
+			if (seg1_end == seg2_start || seg1_end == seg2_end)
+				return false;
+		}
+
+		return true;
+	}
+
+	if (or1 == PointOrientation::COLINEAR && is_within_bounds(seg2_start, seg1_start, seg1_end))
+	{
+		if (or2 == PointOrientation::COLINEAR)
+		{
+			if (seg2_start == seg1_start)
+			{
+				if (dot(seg1_end - seg1_start, seg2_end - seg1_start) > 0.0f)
+					return true;
+			}
+
+			if (seg2_start == seg1_end)
+			{
+				if (dot(seg1_start - seg1_end, seg2_end - seg1_end) > 0.0f)
+					return true;
+			}
+		}
+		else
+		{
+			if ((seg2_start != seg1_start) && (seg2_start != seg1_end))
+				return true;
+		}
+	}
+
+	if (or2 == PointOrientation::COLINEAR && is_within_bounds(seg2_end, seg1_start, seg1_end))
+	{
+		if (or1 == PointOrientation::COLINEAR)
+		{
+			if (seg2_end == seg1_start)
+			{
+				if (dot(seg1_end - seg1_start, seg2_start - seg1_start) > 0.0f)
+					return true;
+			}
+
+			if (seg2_end == seg1_end)
+			{
+				if (dot(seg1_start - seg1_end, seg2_start - seg1_end) > 0.0f)
+					return true;
+			}
+		}
+		else
+		{
+			if ((seg2_end != seg1_start) && (seg2_end != seg1_end))
+				return true;
+		}
+	}
+
+	if (or3 == PointOrientation::COLINEAR && is_within_bounds(seg1_start, seg2_start, seg2_end))
+	{
+		if (or4 == PointOrientation::COLINEAR)
+		{
+			if (seg1_start == seg2_start)
+			{
+				if (dot(seg2_end - seg2_start, seg1_end - seg2_start) > 0.0f)
+					return true;
+			}
+
+			if (seg1_start == seg2_end)
+			{
+				if (dot(seg2_start - seg2_end, seg1_end - seg2_end) > 0.0f)
+					return true;
+			}
+		}
+		else
+		{
+			if ((seg1_start != seg2_start) && (seg1_start != seg2_end))
+				return true;
+		}
+	}
+
+	if (or4 == PointOrientation::COLINEAR && is_within_bounds(seg1_end, seg2_start, seg2_end))
+	{
+		if (or3 == PointOrientation::COLINEAR)
+		{
+			if (seg1_end == seg2_start)
+			{
+				if (dot(seg2_end - seg2_start, seg1_start - seg2_start) > 0.0f)
+					return true;
+			}
+
+			if (seg1_end == seg2_end)
+			{
+				if (dot(seg2_start - seg2_end, seg1_start - seg2_end) > 0.0f)
+					return true;
+			}
+		}
+		else
+		{
+			if ((seg1_end != seg2_start) && (seg1_end != seg2_end))
+				return true;
+		}
+	}
+
+	return false;
+}
+
 } // namespace math3d
 
 #endif // _MATH3D_GEOMETRY_H_
