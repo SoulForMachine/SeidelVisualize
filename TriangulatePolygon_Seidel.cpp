@@ -19,6 +19,13 @@ enum class VerticalRelation
 };
 
 
+enum class HorizontalRelation
+{
+	LEFT,
+	RIGHT
+};
+
+
 enum class Side
 {
 	LEFT,
@@ -38,6 +45,19 @@ static VerticalRelation PointsVerticalRelation(const math3d::vec2f& queryPoint, 
 		return VerticalRelation::BELOW;
 	else
 		return VerticalRelation::ABOVE;
+}
+
+
+static HorizontalRelation PointsHorizontalRelation(const math3d::vec2f& queryPoint, const math3d::vec2f& inRelationToPoint)
+{
+	if (queryPoint.x < inRelationToPoint.x)
+		return HorizontalRelation::LEFT;
+	else if (queryPoint.x > inRelationToPoint.x)
+		return HorizontalRelation::RIGHT;
+	else if (queryPoint.y < inRelationToPoint.y)
+		return HorizontalRelation::LEFT;
+	else
+		return HorizontalRelation::RIGHT;
 }
 
 
@@ -61,13 +81,6 @@ TriangulationState::TriangulationState(const std::vector<std::vector<math3d::vec
 	}
 
 	points.resize(numPoints);
-
-	for (size_t i = 0; i < numPoints; ++i)
-	{
-		points[i].index = i;
-		points[i].node = nullptr;
-	}
-
 	segments.resize(numPoints);
 
 	size_t i = 0;
@@ -92,7 +105,26 @@ TriangulationState::TriangulationState(const std::vector<std::vector<math3d::vec
 				seg.upward = false;
 			}
 
+			// Is the lower point located to the left of the upper point?
+			bool lowerLeft = (PointsHorizontalRelation(pointCoords[seg.lowerPointIndex], pointCoords[seg.upperPointIndex]) == HorizontalRelation::LEFT);
+
 			seg.line = math3d::line_from_points_2d(pointCoords[seg.lowerPointIndex], pointCoords[seg.upperPointIndex]);
+
+			points[i + j].index = i + j;
+			points[i + j].node = nullptr;
+
+			// Set segment 1-base indices for the upper and lower points. If a point is segment's right point,
+			// then mark it by setting the segment index as negative.
+			int segIndex = i + j + 1;
+			if (points[seg.lowerPointIndex].seg1Index == 0)
+				points[seg.lowerPointIndex].seg1Index = lowerLeft ? segIndex : -segIndex;
+			else
+				points[seg.lowerPointIndex].seg2Index = lowerLeft ? segIndex : -segIndex;
+
+			if (points[seg.upperPointIndex].seg1Index == 0)
+				points[seg.upperPointIndex].seg1Index = lowerLeft ? -segIndex : segIndex;
+			else
+				points[seg.upperPointIndex].seg2Index = lowerLeft ? -segIndex : segIndex;
 		}
 
 		i += outl.size();
@@ -1027,6 +1059,87 @@ static void BuildMonotonePolysAndTriangulate(TriangulationState& state)
 	}
 }
 
+static bool IsSimplePolygon(TriangulationState& state)
+{
+	std::vector<Segment*> sortedSegments;
+	std::vector<Point*> sortedPoints(state.points.size());
+
+	auto sortPred = [&state](const Point* pt1, const Point* pt2) -> bool {
+		if (state.pointCoords[pt1->index].x < state.pointCoords[pt2->index].x)
+			return true;
+		else if (state.pointCoords[pt1->index].x == state.pointCoords[pt2->index].x)
+			return state.pointCoords[pt1->index].y < state.pointCoords[pt2->index].y;
+		else
+			return false;
+	};
+
+	for (size_t i = 0; i < sortedPoints.size(); ++i)
+		sortedPoints[i] = &state.points[i];
+
+	std::sort(sortedPoints.begin(), sortedPoints.end(), sortPred);
+
+	for (Point* pt : sortedPoints)
+	{
+		int segIndices[] = { pt->seg1Index, pt->seg2Index };
+
+		for (int segIndex : segIndices)
+		{
+			Segment& seg = state.segments[std::abs(segIndex) - 1];
+
+			if (segIndex > 0)
+			{
+				// The point is the left endpoint of segment (starts the segment).
+				auto insertPos = std::lower_bound(sortedSegments.begin(), sortedSegments.end(), &seg);
+				Segment* nextSeg = (insertPos != sortedSegments.end()) ? *insertPos : nullptr;
+				Segment* prevSeg = (insertPos != sortedSegments.begin()) ? *std::prev(insertPos) : nullptr;
+
+				if (prevSeg != nullptr && math3d::do_line_segments_intersect_exclude_endpoints_2d(
+					state.pointCoords[seg.lowerPointIndex], state.pointCoords[seg.upperPointIndex],
+					state.pointCoords[prevSeg->lowerPointIndex], state.pointCoords[prevSeg->upperPointIndex]))
+				{
+					return false;
+				}
+
+				if (nextSeg != nullptr && math3d::do_line_segments_intersect_exclude_endpoints_2d(
+					state.pointCoords[seg.lowerPointIndex], state.pointCoords[seg.upperPointIndex],
+					state.pointCoords[nextSeg->lowerPointIndex], state.pointCoords[nextSeg->upperPointIndex]))
+				{
+					return false;
+				}
+
+				sortedSegments.insert(insertPos, &seg);
+			}
+			else
+			{
+				// The point is the right endpoint of segment (ends the segment).
+				auto segPos = std::lower_bound(sortedSegments.begin(), sortedSegments.end(), &seg);
+
+				if (segPos != sortedSegments.end() && *segPos == &seg)
+				{
+					Segment* nextSeg = (std::next(segPos) != sortedSegments.end()) ? *std::next(segPos) : nullptr;
+					Segment* prevSeg = (segPos != sortedSegments.begin()) ? *std::prev(segPos) : nullptr;
+
+					if (prevSeg != nullptr && nextSeg != nullptr &&
+						math3d::do_line_segments_intersect_exclude_endpoints_2d(
+							state.pointCoords[prevSeg->lowerPointIndex], state.pointCoords[prevSeg->upperPointIndex],
+							state.pointCoords[nextSeg->lowerPointIndex], state.pointCoords[nextSeg->upperPointIndex]))
+					{
+						return false;
+					}
+
+					sortedSegments.erase(segPos);
+				}
+				else
+				{
+					assert(false);
+				}
+			}
+		}
+	}
+
+	return true;
+}
+
 bool TriangulatePolygon_Seidel(TriangulationState& state)
 {
 	size_t numPoints = state.pointCoords.size();
@@ -1036,6 +1149,9 @@ bool TriangulatePolygon_Seidel(TriangulationState& state)
 	{
 		return false;
 	}
+
+	if (!IsSimplePolygon(state))
+		return false;
 
 	Trapezoid::nextNumber = 1;
 

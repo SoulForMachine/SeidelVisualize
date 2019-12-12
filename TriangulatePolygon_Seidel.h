@@ -15,8 +15,15 @@ struct TrapezoidationTreeNode;
 
 struct Point
 {
-	size_t index;
-	TrapezoidationTreeNode* node;
+	size_t index = 0;
+	
+	// 1-based indices of segments that share this point.
+	// If the point is left point of the segment, the index is positive.
+	// If it is right point of the segment, the index is negative.
+	int seg1Index = 0;
+	int seg2Index = 0;
+
+	TrapezoidationTreeNode* node = nullptr;
 };
 
 
