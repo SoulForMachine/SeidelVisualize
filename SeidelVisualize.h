@@ -48,7 +48,7 @@ private:
 
 	Ui::SeidelVisualizeClass ui;
 	Geometry::TriangulationState* _state = nullptr;
-	size_t _dbgSteps = std::numeric_limits<size_t>::max();
+	int_t _dbgSteps = std::numeric_limits<int_t>::max();
 	Geometry::Winding _triangleWinding = Geometry::Winding::CCW;
 	Geometry::FillRule _fillRule = Geometry::FillRule::ODD;
 	bool _randSegments = false;

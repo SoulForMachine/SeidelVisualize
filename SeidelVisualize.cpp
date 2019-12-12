@@ -90,7 +90,7 @@ SeidelVisualize::~SeidelVisualize()
 
 void SeidelVisualize::OnEditFinished()
 {
-	_dbgSteps = std::numeric_limits<size_t>::max();
+	_dbgSteps = std::numeric_limits<int_t>::max();
 	TriangulateAndDisplay();
 }
 
@@ -127,7 +127,7 @@ void SeidelVisualize::OnActionLoad()
 			if (!outlines.empty())
 			{
 				ui.widgetInputPolygon->SetOutlines(std::move(outlines));
-				_dbgSteps = std::numeric_limits<size_t>::max();
+				_dbgSteps = std::numeric_limits<int_t>::max();
 				TriangulateAndDisplay();
 			}
 		}
@@ -155,7 +155,7 @@ void SeidelVisualize::OnActionReset()
 	ui.widgetTrapTree->SetTreeState(nullptr);
 	delete _state;
 	_state = nullptr;
-	_dbgSteps = std::numeric_limits<size_t>::max();
+	_dbgSteps = std::numeric_limits<int_t>::max();
 }
 
 void SeidelVisualize::OnActionResetView()
@@ -177,7 +177,7 @@ void SeidelVisualize::OnActionTrapToEnd()
 {
 	if (!_randSegments)
 	{
-		_dbgSteps = std::numeric_limits<size_t>::max();
+		_dbgSteps = std::numeric_limits<int_t>::max();
 		TriangulateAndDisplay();
 	}
 }
@@ -186,7 +186,7 @@ void SeidelVisualize::OnActionTrapNextStep()
 {
 	if (!ui.widgetInputPolygon->IsEditing() && !_randSegments)
 	{
-		if (_dbgSteps < std::numeric_limits<size_t>::max())
+		if (_dbgSteps < std::numeric_limits<int_t>::max())
 		{
 			_dbgSteps += 1;
 			TriangulateAndDisplay();
@@ -224,7 +224,7 @@ void SeidelVisualize::OnActionViewResult(QAction* action)
 void SeidelVisualize::OnActionOptionsRandSeg()
 {
 	_randSegments = !_randSegments;
-	_dbgSteps = std::numeric_limits<size_t>::max();
+	_dbgSteps = std::numeric_limits<int_t>::max();
 	TriangulateAndDisplay();
 }
 
@@ -235,7 +235,7 @@ void SeidelVisualize::OnActionOptionsTrisWinding(QAction* action)
 	else if (action == ui.actionOptionsTrisWindCW)
 		_triangleWinding = Geometry::Winding::CW;
 
-	_dbgSteps = std::numeric_limits<size_t>::max();
+	_dbgSteps = std::numeric_limits<int_t>::max();
 	TriangulateAndDisplay();
 }
 
@@ -246,7 +246,7 @@ void SeidelVisualize::OnActionOptionsFillRule(QAction* action)
 	else if (action == ui.actionOptionsFillRuleOdd)
 		_fillRule = Geometry::FillRule::ODD;
 
-	_dbgSteps = std::numeric_limits<size_t>::max();
+	_dbgSteps = std::numeric_limits<int_t>::max();
 	TriangulateAndDisplay();
 }
 
@@ -307,7 +307,7 @@ void SeidelVisualize::DumpMonChains(QTextStream& outStream)
 
 	for (auto& monChain : _state->monChains)
 	{
-		for (int vertInd : monChain)
+		for (index_t vertInd : monChain)
 			outStream << vertInd << "  ";
 		outStream << "\n";
 	}
@@ -318,7 +318,7 @@ void SeidelVisualize::DumpTris(QTextStream& outStream)
 	if (_state == nullptr)
 		return;
 
-	for (size_t i = 0; i < _state->outIndices.size(); ++i)
+	for (index_t i = 0; i < _state->outIndices.size(); ++i)
 	{
 		outStream << _state->outIndices[i];
 		outStream << ((i % 3 == 2) ? "\n" : "  ");
@@ -404,7 +404,7 @@ bool SeidelVisualize::SavePolyFile(const QString& polyFile, const std::vector<st
 	if (file.open(QIODevice::WriteOnly | QIODevice::Text))
 	{
 		QTextStream outStream { &file };
-		for (size_t i = 0; i < outlines.size(); ++i)
+		for (index_t i = 0; i < outlines.size(); ++i)
 		{
 			if (i > 0)
 				outStream << "*\n";

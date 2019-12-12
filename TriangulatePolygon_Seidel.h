@@ -6,6 +6,9 @@
 #include "vec2.h"
 
 
+using int_t = std::intmax_t;
+using index_t = std::ptrdiff_t;
+
 namespace Geometry
 {
 
@@ -15,13 +18,13 @@ struct TrapezoidationTreeNode;
 
 struct Point
 {
-	size_t index = 0;
+	index_t index = 0;
 	
 	// 1-based indices of segments that share this point.
 	// If the point is left point of the segment, the index is positive.
 	// If it is right point of the segment, the index is negative.
-	int seg1Index = 0;
-	int seg2Index = 0;
+	index_t seg1Index = 0;
+	index_t seg2Index = 0;
 
 	TrapezoidationTreeNode* node = nullptr;
 };
@@ -29,8 +32,8 @@ struct Point
 
 struct Segment
 {
-	size_t upperPointIndex;
-	size_t lowerPointIndex;
+	index_t upperPointIndex;
+	index_t lowerPointIndex;
 	math3d::vec3f line;
 	bool upward;
 };
@@ -48,23 +51,23 @@ struct Trapezoid
 		RIGHT
 	};
 
-	int upperPointIndex = -1;
-	int lowerPointIndex = -1;
+	index_t upperPointIndex = -1;
+	index_t lowerPointIndex = -1;
 	Trapezoid* upper1 = nullptr;
 	Trapezoid* upper2 = nullptr;
 	Trapezoid* upper3 = nullptr;
 	Trapezoid* lower1 = nullptr;
 	Trapezoid* lower2 = nullptr;
 	ThirdUpperSide upper3Side = ThirdUpperSide::LEFT;
-	int leftSegmentIndex = -1;
-	int rightSegmentIndex = -1;
+	index_t leftSegmentIndex = -1;
+	index_t rightSegmentIndex = -1;
 	TrapezoidationTreeNode* node = nullptr;
 	bool inside = false;
 	bool visited[2] = { false, false };
 	bool hasDiagonal = false;
 
-	const int number;
-	static int nextNumber;
+	const int_t number;
+	static int_t nextNumber;
 };
 
 
@@ -81,7 +84,7 @@ struct TrapezoidationTreeNode
 
 	union
 	{
-		size_t elementIndex;
+		index_t elementIndex;
 		Trapezoid* trapezoid;
 	};
 
@@ -89,8 +92,8 @@ struct TrapezoidationTreeNode
 	TrapezoidationTreeNode* right = nullptr;
 	TrapezoidationTreeNode* parent = nullptr;
 
-	unsigned int leftWeight = 0;
-	unsigned int rightWeight = 0;
+	int_t leftWeight = 0;
+	int_t rightWeight = 0;
 };
 
 
@@ -117,7 +120,7 @@ struct TriangulationState
 	std::vector<TrapezoidationTreeNode*> treeNodes;
 	std::vector<Trapezoid*> trapezoids;
 	std::vector<unsigned short> outIndices;
-	std::vector<std::vector<int>> monChains;
+	std::vector<std::vector<index_t>> monChains;
 
 	TrapezoidationTreeNode* treeRootNode = nullptr;
 	std::mt19937 rndEng { std::random_device{}() };
@@ -125,7 +128,7 @@ struct TriangulationState
 	Winding triangleWinding = Winding::CCW;
 	FillRule fillRule = FillRule::ODD;
 
-	size_t dbgSteps = std::numeric_limits<size_t>::max();
+	int_t dbgSteps = std::numeric_limits<int_t>::max();
 };
 
 

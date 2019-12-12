@@ -273,12 +273,12 @@ void InputPolygonWidget::DrawOutlines(QPainter& painter)
 	painter.setPen(QPen { Qt::GlobalColor::darkBlue });
 	painter.setBrush(QBrush { Qt::GlobalColor::darkBlue });
 
-	size_t ptInd = 0;
+	index_t ptInd = 0;
 	std::vector<QPoint> scrPts;
 
-	for (size_t i = 0; i < _outlines.size(); ++i)
+	for (index_t i = 0; i < _outlines.size(); ++i)
 	{
-		for (size_t j = 0; j < _outlines[i].size(); ++j)
+		for (index_t j = 0; j < _outlines[i].size(); ++j)
 		{
 			auto scrPt = WorldToScreen({ _outlines[i][j].x, _outlines[i][j].y });
 			scrPts.push_back({ scrPt.x, scrPt.y });
@@ -430,11 +430,11 @@ return;
 
 painter.setPen(QPen { Qt::cyan });
 
-for (size_t i = 0; i < _state->outIndices.size(); i += 3)
+for (index_t i = 0; i < _state->outIndices.size(); i += 3)
 {
 	std::vector<QPoint> points;
 
-	for (size_t j = 0; j < 4; ++j)
+	for (index_t j = 0; j < 4; ++j)
 	{
 		auto scrPt = WorldToScreen(_state->pointCoords[_state->outIndices[i + j % 3]]);
 		points.push_back(QPoint { scrPt.x, scrPt.y });
@@ -503,8 +503,8 @@ bool InputPolygonWidget::IsNewSegmentValid(const math3d::vec2f& newPt, bool clos
 	// The new segment must not intersect previously created outlines.
 	for (auto& outline : _outlines)
 	{
-		size_t numPts = outline.size();
-		for (size_t i = 0; i < numPts; ++i)
+		int_t numPts = outline.size();
+		for (index_t i = 0; i < numPts; ++i)
 		{
 			if (math3d::do_line_segments_intersect_2d(prevPt, newPt, outline[i], outline[(i + 1) % numPts]))
 				return false;
@@ -523,9 +523,9 @@ bool InputPolygonWidget::IsNewSegmentValid(const math3d::vec2f& newPt, bool clos
 			return false;
 	}
 
-	size_t numSeg = _points.size() - 1;
+	int_t numSeg = _points.size() - 1;
 
-	for (size_t i = 0; i < numSeg; ++i)
+	for (index_t i = 0; i < numSeg; ++i)
 	{
 		if ((i == 0 && closing) || (i == numSeg - 1))
 		{
