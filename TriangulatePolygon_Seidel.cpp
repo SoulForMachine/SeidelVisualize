@@ -1074,10 +1074,19 @@ static bool IsSimplePolygon(TriangulationState& state)
 			return false;
 	};
 
+	auto adjEqPred = [&state](const Point* pt1, const Point* pt2) -> bool {
+		return state.pointCoords[pt1->index] == state.pointCoords[pt2->index];
+	};
+
 	for (index_t i = 0; i < sortedPoints.size(); ++i)
 		sortedPoints[i] = &state.points[i];
 
 	std::sort(sortedPoints.begin(), sortedPoints.end(), sortPred);
+
+	// No two equal points are allowed.
+	auto eqIt = std::adjacent_find(sortedPoints.begin(), sortedPoints.end(), adjEqPred);
+	if (eqIt != sortedPoints.end())
+		return false;
 
 	for (Point* pt : sortedPoints)
 	{
@@ -1094,18 +1103,52 @@ static bool IsSimplePolygon(TriangulationState& state)
 				Segment* nextSeg = (insertPos != sortedSegments.end()) ? *insertPos : nullptr;
 				Segment* prevSeg = (insertPos != sortedSegments.begin()) ? *std::prev(insertPos) : nullptr;
 
-				if (prevSeg != nullptr && math3d::do_line_segments_intersect_exclude_endpoints_2d(
-					state.pointCoords[seg.lowerPointIndex], state.pointCoords[seg.upperPointIndex],
-					state.pointCoords[prevSeg->lowerPointIndex], state.pointCoords[prevSeg->upperPointIndex]))
+				if (prevSeg != nullptr)
 				{
-					return false;
+					if (seg.lowerPointIndex == prevSeg->lowerPointIndex || seg.upperPointIndex == prevSeg->lowerPointIndex ||
+						seg.lowerPointIndex == prevSeg->upperPointIndex || seg.upperPointIndex == prevSeg->upperPointIndex)
+					{
+						// For adjacent segments use intersection test that excludes endpoints.
+						if (math3d::do_line_segments_intersect_exclude_endpoints_2d(
+							state.pointCoords[seg.lowerPointIndex], state.pointCoords[seg.upperPointIndex],
+							state.pointCoords[prevSeg->lowerPointIndex], state.pointCoords[prevSeg->upperPointIndex]))
+						{
+							return false;
+						}
+					}
+					else
+					{
+						if (math3d::do_line_segments_intersect_2d(
+							state.pointCoords[seg.lowerPointIndex], state.pointCoords[seg.upperPointIndex],
+							state.pointCoords[prevSeg->lowerPointIndex], state.pointCoords[prevSeg->upperPointIndex]))
+						{
+							return false;
+						}
+					}
 				}
 
-				if (nextSeg != nullptr && math3d::do_line_segments_intersect_exclude_endpoints_2d(
-					state.pointCoords[seg.lowerPointIndex], state.pointCoords[seg.upperPointIndex],
-					state.pointCoords[nextSeg->lowerPointIndex], state.pointCoords[nextSeg->upperPointIndex]))
+				if (nextSeg != nullptr)
 				{
-					return false;
+					if (seg.lowerPointIndex == nextSeg->lowerPointIndex || seg.upperPointIndex == nextSeg->lowerPointIndex ||
+						seg.lowerPointIndex == nextSeg->upperPointIndex || seg.upperPointIndex == nextSeg->upperPointIndex)
+					{
+						// For adjacent segments use intersection test that excludes endpoints.
+						if (math3d::do_line_segments_intersect_exclude_endpoints_2d(
+							state.pointCoords[seg.lowerPointIndex], state.pointCoords[seg.upperPointIndex],
+							state.pointCoords[nextSeg->lowerPointIndex], state.pointCoords[nextSeg->upperPointIndex]))
+						{
+							return false;
+						}
+					}
+					else
+					{
+						if (math3d::do_line_segments_intersect_2d(
+							state.pointCoords[seg.lowerPointIndex], state.pointCoords[seg.upperPointIndex],
+							state.pointCoords[nextSeg->lowerPointIndex], state.pointCoords[nextSeg->upperPointIndex]))
+						{
+							return false;
+						}
+					}
 				}
 
 				sortedSegments.insert(insertPos, &seg);
@@ -1120,12 +1163,28 @@ static bool IsSimplePolygon(TriangulationState& state)
 					Segment* nextSeg = (std::next(segPos) != sortedSegments.end()) ? *std::next(segPos) : nullptr;
 					Segment* prevSeg = (segPos != sortedSegments.begin()) ? *std::prev(segPos) : nullptr;
 
-					if (prevSeg != nullptr && nextSeg != nullptr &&
-						math3d::do_line_segments_intersect_exclude_endpoints_2d(
-							state.pointCoords[prevSeg->lowerPointIndex], state.pointCoords[prevSeg->upperPointIndex],
-							state.pointCoords[nextSeg->lowerPointIndex], state.pointCoords[nextSeg->upperPointIndex]))
+					if (prevSeg != nullptr && nextSeg != nullptr)
 					{
-						return false;
+						if (prevSeg->lowerPointIndex == nextSeg->lowerPointIndex || prevSeg->upperPointIndex == nextSeg->lowerPointIndex ||
+							prevSeg->lowerPointIndex == nextSeg->upperPointIndex || prevSeg->upperPointIndex == nextSeg->upperPointIndex)
+						{
+							// For adjacent segments use intersection test that excludes endpoints.
+							if (math3d::do_line_segments_intersect_exclude_endpoints_2d(
+								state.pointCoords[prevSeg->lowerPointIndex], state.pointCoords[prevSeg->upperPointIndex],
+								state.pointCoords[nextSeg->lowerPointIndex], state.pointCoords[nextSeg->upperPointIndex]))
+							{
+								return false;
+							}
+						}
+						else
+						{
+							if (math3d::do_line_segments_intersect_2d(
+								state.pointCoords[prevSeg->lowerPointIndex], state.pointCoords[prevSeg->upperPointIndex],
+								state.pointCoords[nextSeg->lowerPointIndex], state.pointCoords[nextSeg->upperPointIndex]))
+							{
+								return false;
+							}
+						}
 					}
 
 					sortedSegments.erase(segPos);
