@@ -31,6 +31,7 @@ private slots:
 	void OnActionTrapNextStep();
 	void OnActionTrapPrevStep();
 
+	void OnActionViewFillPolygons();
 	void OnActionViewTrapezoids();
 	void OnActionViewResult(QAction* action);
 	void OnActionOptionsRandSeg();

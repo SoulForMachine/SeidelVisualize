@@ -63,6 +63,7 @@ SeidelVisualize::SeidelVisualize(QWidget *parent)
 		break;
 	}
 
+	ui.actionViewFillPolygons->setChecked(ui.widgetInputPolygon->GetFillPolygons());
 	ui.actionViewTrapezoids->setChecked(ui.widgetInputPolygon->GetViewTrapezoids());
 	ui.actionOptionsRandomizeSegments->setChecked(_randSegments);
 
@@ -76,6 +77,7 @@ SeidelVisualize::SeidelVisualize(QWidget *parent)
 	connect(ui.actionTrapNextStep, &QAction::triggered, this, &SeidelVisualize::OnActionTrapNextStep);
 	connect(ui.actionTrapPreviousStep, &QAction::triggered, this, &SeidelVisualize::OnActionTrapPrevStep);
 
+	connect(ui.actionViewFillPolygons, &QAction::triggered, this, &SeidelVisualize::OnActionViewFillPolygons);
 	connect(ui.actionViewTrapezoids, &QAction::triggered, this, &SeidelVisualize::OnActionViewTrapezoids);
 	connect(ui.actionOptionsRandomizeSegments, &QAction::triggered, this, &SeidelVisualize::OnActionOptionsRandSeg);
 	connect(actionGroupResults, &QActionGroup::triggered, this, &SeidelVisualize::OnActionViewResult);
@@ -204,6 +206,11 @@ void SeidelVisualize::OnActionTrapPrevStep()
 			TriangulateAndDisplay();
 		}
 	}
+}
+
+void SeidelVisualize::OnActionViewFillPolygons()
+{
+	ui.widgetInputPolygon->SetFillPolygons(!ui.widgetInputPolygon->GetFillPolygons());
 }
 
 void SeidelVisualize::OnActionViewTrapezoids()

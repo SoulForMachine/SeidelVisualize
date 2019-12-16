@@ -64,6 +64,12 @@ void InputPolygonWidget::ResetView()
 	update();
 }
 
+void InputPolygonWidget::SetFillPolygons(bool fill)
+{
+	_fillPolys = fill;
+	update();
+}
+
 void InputPolygonWidget::SetViewTrapezoids(bool view)
 {
 	_viewTraps = view;
@@ -104,6 +110,9 @@ void InputPolygonWidget::paintEvent(QPaintEvent* event)
 	}
 	else
 	{
+		if (_fillPolys)
+			DrawFilledPolygon(painter);
+
 		// Draw trapezoid horizontal lines and numbers.
 		if (_viewTraps)
 			DrawTrapezoids(painter);
@@ -247,6 +256,28 @@ math3d::vec2i InputPolygonWidget::WorldToScreen(const math3d::vec2f& worldPt)
 	auto scrPt = math3d::vec2i { _pan.x, height() - _pan.y } + math3d::vec2i { worldPt * PIXELS_PER_METER * _zoom };
 	scrPt.y = height() - scrPt.y;
 	return scrPt;
+}
+
+void InputPolygonWidget::DrawFilledPolygon(QPainter& painter)
+{
+	if (_state == nullptr)
+		return;
+
+	painter.setPen(Qt::NoPen);
+	painter.setBrush(QBrush { QColor { 10, 10, 200, 30 } });
+
+	for (index_t i = 0; i < _state->outIndices.size(); i += 3)
+	{
+		auto pt1 = WorldToScreen(_state->pointCoords[_state->outIndices[i]]);
+		auto pt2 = WorldToScreen(_state->pointCoords[_state->outIndices[i + 1]]);
+		auto pt3 = WorldToScreen(_state->pointCoords[_state->outIndices[i + 2]]);
+		QPoint points[] = {
+			{ pt1.x, pt1.y },
+			{ pt2.x, pt2.y },
+			{ pt3.x, pt3.y },
+		};
+		painter.drawPolygon(points, 3);
+	}
 }
 
 void InputPolygonWidget::DrawAxes(QPainter& painter)

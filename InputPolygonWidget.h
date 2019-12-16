@@ -46,6 +46,8 @@ public:
 	void SetOutlines(std::vector<std::vector<math3d::vec2f>>&& outlines);
 	void ResetView();
 
+	bool GetFillPolygons() const { return _fillPolys; }
+	void SetFillPolygons(bool fill);
 	bool GetViewTrapezoids() const { return _viewTraps; }
 	void SetViewTrapezoids(bool view);
 	ResultViewType GetResultViewType() const { return _resultViewType; }
@@ -65,6 +67,7 @@ private:
 
 	math3d::vec2f ScreenToWorld(const math3d::vec2i& screenPt);
 	math3d::vec2i WorldToScreen(const math3d::vec2f& worldPt);
+	void DrawFilledPolygon(QPainter& painter);
 	void DrawAxes(QPainter& painter);
 	void DrawOutlines(QPainter& painter);
 	void DrawTrapezoids(QPainter& painter);
@@ -89,4 +92,5 @@ private:
 	bool _initPan = true;
 	bool _viewTraps = true;
 	bool _outlineStart = true;
+	bool _fillPolys = true;
 };
